@@ -18,6 +18,8 @@ PrismCast captures live video from web-based TV streaming sites and delivers it 
 
 This project is inspired by and builds upon the excellent work of [Chrome Capture for Channels](https://github.com/fancybits/chrome-capture-for-channels) by the Channels DVR team. I'm grateful to them for creating the original foundation that made PrismCast possible.
 
+The name PrismCast reflects what the project does: like a prism transforming light into a spectrum of colors, PrismCast takes video from diverse streaming sources and refracts it into a unified HLS format for your DVR.
+
 ## A Note About This Project
 
 PrismCast started as an experiment: could I create a complete, production-quality application using only AI tools? Every line of code in this project was written by AI (Claude), but built on a foundation of my existing open source projects, coding style, and design philosophy. The AI learned from my prior work and preferences to produce code that feels like mine—because in many ways, it is. The result is a modern, fully-featured streaming server that I use daily.
@@ -26,7 +28,7 @@ I share this not as a gimmick, but because I think it's genuinely interesting. T
 
 ## Why PrismCast?
 
-The name reflects what the project does: like a prism transforming light into a spectrum of colors, PrismCast takes video from diverse streaming sources and refracts it into a unified HLS format for your DVR.
+If you're already using Chrome Capture for Channels and it's working well for you, that's wonderful! There's no need to switch. However, if you're looking for something different, PrismCast offers a modern TypeScript codebase, a real-time web interface, intelligent recovery, and the flexibility to easily add your own channels. The site profile system makes it straightforward to add support for new streaming sites, and contributions are always welcome!
 
 ## Features
 
@@ -58,12 +60,9 @@ The name reflects what the project does: like a prism transforming light into a 
 - **Gracenote integration** - Channels can include station IDs for automatic guide data matching in Channels DVR.
 - **Modern codebase** - Clean TypeScript with ESM modules, full type safety, and comprehensive documentation.
 
-## Why Choose PrismCast?
-
-If you're already using Chrome Capture for Channels and it's working well for you, that's wonderful! There's no need to switch. However, if you're looking for something different, PrismCast offers a modern TypeScript codebase, a real-time web interface, intelligent recovery, and the flexibility to easily add your own channels. The site profile system makes it straightforward to add support for new streaming sites, and contributions are always welcome!
-
 ## Requirements
 
+- **macOS** - PrismCast is developed and tested on macOS. Linux and Windows may work but are untested.
 - **Node.js 22** or later
 - **Google Chrome** (PrismCast will try to find it automatically, or you can specify the path)
 - **Channels DVR** (or any client that can consume HLS streams)
