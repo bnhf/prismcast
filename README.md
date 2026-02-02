@@ -9,12 +9,12 @@
 [![Version](https://img.shields.io/npm/v/prismcast?color=636382&label=PrismCast&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAwIiBoZWlnaHQ9IjEwMDAiIHZpZXdCb3g9IjAgMCAxMDAwIDEwMDAiPjxnIGZpbGw9IiNmZmYiPjxwYXRoIGQ9Ik0zODYgMjIwYy0xOCA2LTIyIDExLTQ2IDU1bC0xMSAxOS01NSA5OS00NCA4MS0xNSAyNi05IDE3LTUgOC0zMyA2MS02NCAxMTdjLTQgOS00IDI5IDAgMzdsNCA3YzYgMTQgMjQgMjggNDEgMzEgMTAgMiA1MzIgMiA1NDAgMCAzOS0xMCA1My00NyAzMi04NmExNTE0IDE1MTQgMCAwIDAtNjgtMTEzIDU1NyA1NTcgMCAwIDAtNzMtMTRsLTM2LTYtMTctMi0xNC0yLTE0LTItMTQtMi0yMS0zYy0zNy01LTQ4IDExLTE1IDIxbDI0IDcgMzIgOSA0MSA5IDEzIDMgMTIgMiA1NiAxNGMzIDEgNCAzIDExIDE1bDMzIDU3cTI2IDM5IDEwIDUwYy02IDItMjc5IDQtMjgyIDItMy0zLTEtNDc1IDItNDc4cTQtMyA3IDJsMyA2YTU3NiA1NzYgMCAwIDEgMzkgNjNsMjkgNTBjMTYgMjggMjIgMzIgMzkgMjRxMTgtNyAxMS0yMWwtNTMtOTAtNS03LTUtOS03LTEyYy0yMC0zNi00Ny01Mi03My00NW0tMjYgMjYyYy0xIDEzOS0xIDE0MC00IDE0MGwtNCAxLTc4IDM2LTIxIDEwLTI0IDExLTc3IDM0Yy00IDAgMi0xMiAyMS00N2wxMy0yMyAxMC0xOCA0MS03OCAzOS03MSA2LTEwIDYtMTEgNy0xMyA3LTEyIDYtMTIgMTItMjEgMzAtNTZjOS0xNiA4LTE2IDktNXptMCAyMTRjMCA0NSAyIDQxLTE2IDQxLTMzIDItMTUzIDItMTUzIDBsNS0zIDE0LTYgMTYtNyA1OS0yNiAyMS05IDQwLTE4YzE0LTcgMTMtOSAxNCAyOG00MzctNDM0cS0yMyAxMC04IDMzYTM0NyAzNDcgMCAwIDEgNTYgMTE3bDMgMTAgNCAyNGMxMSA1MyA1IDExOC0xNCAxNjZxLTExIDI0IDYgMzFjMjQgMTIgNDAtMTMgNTItODZhMzgxIDM4MSAwIDAgMC0xMC0xNTRjLTEyLTQ3LTM0LTk3LTU3LTEyOHEtMTYtMTktMzItMTNtLTc4IDYzcS0yMCA3IDMgNDJhMjUwIDI1MCAwIDAgMSAzMSAyMTJjLTQgMTIgNiAyNSAyMSAyNyAxNyAxIDI3LTIwIDMyLTcyYTMyMSAzMjEgMCAwIDAtNDMtMTg2cS0yMS0zNS00NC0yMyIvPjxwYXRoIGQ9Ik02NTQgMzY3YTMzOSAzMzkgMCAwIDAtNDkgMjNsLTc5IDM3LTQyIDIwLTEzIDYtMzEgMTZjLTE2IDEwLTIgMzEgMTYgMjNsNTctMjIgMjItOCAxOC03IDgtMyAyMS05IDIwLTcgNi0zIDIyLTkgMTItNSAxOS03YzIxLTkgMjYtMTYgMTktMzJxLTctMTktMjYtMTNtMzYgMTA3LTQwIDctMTQgMi0xMyAzLTE5IDMtMzIgNi0xNSAyLTE1IDMtNTEgMTAtMTIgMmMtMTMgMi0xOCAxMC0xMSAxNSA0IDIgMjUgMyAzOSAybDMyLTJjNzctNCAxMzktNyAxNTAtOWw5LTJjMjEtMyAxOS00NC0yLTQzeiIvPjwvZz48L3N2Zz4=&style=for-the-badge)](https://www.npmjs.com/package/prismcast)
 [![Channels DVR](https://img.shields.io/badge/Channels%20DVR-Ready-636382?logo=data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQxIiBoZWlnaHQ9IjE2NSIgdmlld0JveD0iMCAwIDI0MSAxNjUiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxnIGNsaXAtcGF0aD0idXJsKCNjbGlwMCkiPgo8cGF0aCBkPSJNNDYuMSAzNS4ySDcuOTAwMDJWMTQyLjVINDYuMVYzNS4yWiIgZmlsbD0iI0VEREE2RiIvPgo8cGF0aCBkPSJNNDYuMSAxNDJINy45MDAwMlYxNTYuOEg0Ni4xVjE0MloiIGZpbGw9IiM3NTkyQ0EiLz4KPHBhdGggZD0iTTg0LjEgMzUuMkg0NS45VjE0Mi41SDg0LjFWMzUuMloiIGZpbGw9IiNBNEM0NUUiLz4KPHBhdGggZD0iTTg0LjEgMTQySDQ1LjlWMTU2LjhIODQuMVYxNDJaIiBmaWxsPSIjNDg1MUEzIi8+CjxwYXRoIGQ9Ik0xMjIuMSAzNS4ySDgzLjlWMTQyLjVIMTIyLjFWMzUuMloiIGZpbGw9IiM2NUJCQzUiLz4KPHBhdGggZD0iTTEyMi4xIDE0Mkg4My45VjE1Ni44SDEyMi4xVjE0MloiIGZpbGw9IiNFNDZENjIiLz4KPHBhdGggZD0iTTE2MC4xIDM1LjJIMTIxLjlWMTQyLjVIMTYwLjFWMzUuMloiIGZpbGw9IiNDNjgzQTAiLz4KPHBhdGggZD0iTTE2MC4xIDE0MkgxMjEuOVYxNTYuOEgxNjAuMVYxNDJaIiBmaWxsPSIjNTQ0QTlFIi8+CjxwYXRoIGQ9Ik0xOTguMSAzNS4ySDE1OS45VjE0Mi41SDE5OC4xVjM1LjJaIiBmaWxsPSIjRTQ2RDYyIi8+CjxwYXRoIGQ9Ik0xOTguMSAxNDJIMTU5LjlWMTU2LjhIMTk4LjFWMTQyWiIgZmlsbD0iIzY1QkFDNCIvPgo8cGF0aCBkPSJNMjM2LjEgMzUuMkgxOTcuOVYxNDIuNUgyMzYuMVYzNS4yWiIgZmlsbD0iIzc1OTJDQSIvPgo8cGF0aCBkPSJNMjM2LjEgMTQySDE5Ny45VjE1Ni44SDIzNi4xVjE0MloiIGZpbGw9IiM2MDQyOUEiLz4KPHBhdGggZD0iTTIzNi45IDI3LjZIMTM1LjhDMTQyLjMgMjAuOCAxNTUuNiA2LjkgMTU3LjMgNUMxNTguNiAzLjUgMTU4LjIgMS45IDE1Ny4yIDAuODk5OTk3QzE1Ni4xIC0wLjEwMDAwMyAxNTQuMiAtMC41MDAwMDMgMTUzLjEgMC41OTk5OTdDMTUxLjkgMS44IDEyNy4xIDI0LjkgMTI0LjIgMjcuNkgxMTYuOUMxMTQgMjQuOSA4OS4xIDEuOCA4OCAwLjU5OTk5N0M4Ni45IC0wLjUwMDAwMyA4NSAtMC4xMDAwMDMgODMuOSAwLjg5OTk5N0M4Mi45IDEuOSA4Mi41IDMuNSA4My44IDQuOUM4NS41IDYuNyA5OC44IDIwLjcgMTA1LjMgMjcuNUg0QzEuOCAyNy41IDAgMjkuMyAwIDMxLjVWMTYwLjJDMCAxNjIuNCAxLjggMTY0LjIgNCAxNjQuMkgyMzYuOUMyMzkuMSAxNjQuMiAyNDAuOSAxNjIuNCAyNDAuOSAxNjAuMlYzMS42QzI0MC45IDI5LjQgMjM5LjEgMjcuNiAyMzYuOSAyNy42Wk0yMzIuOSAxNTYuM0g4VjM1LjZIMjMyLjlWMTU2LjNaIiBmaWxsPSJ3aGl0ZSIvPgo8L2c+CjxkZWZzPgo8Y2xpcFBhdGggaWQ9ImNsaXAwIj4KPHJlY3Qgd2lkdGg9IjI0MC45IiBoZWlnaHQ9IjE2NC4zIiBmaWxsPSJ3aGl0ZSIvPgo8L2NsaXBQYXRoPgo8L2RlZnM+Cjwvc3ZnPgo=&style=for-the-badge)](https://getchannels.com/)
 
-## Browser-based live TV capture for [Channels DVR](https://getchannels.com).
+## Browser-based live TV capture for [Channels DVR](https://getchannels.com) and [Plex](https://plex.tv).
 
 </DIV>
 </SPAN>
 
-PrismCast captures live video from web-based TV streaming sites and delivers it as HLS streams that [Channels DVR](https://getchannels.com/) can record and play back. It uses Google Chrome to navigate to streaming sites, captures the video output, and serves it on your network. Most channels require a cable or streaming TV subscription - log in once with your TV provider credentials and Chrome remembers your session for future use.
+PrismCast captures live video from web-based TV streaming sites and delivers it as HLS streams for [Channels DVR](https://getchannels.com/) and as MPEG-TS streams for [Plex](https://www.plex.tv/) via built-in HDHomeRun emulation. It uses Google Chrome to navigate to streaming sites, captures the video output, and serves it on your network. Most channels require a cable or streaming TV subscription - log in once with your TV provider credentials and Chrome remembers your session for future use.
 
 This project is inspired by and builds upon the excellent work of [Chrome Capture for Channels](https://github.com/fancybits/chrome-capture-for-channels) by the Channels DVR team. I'm grateful to them for creating the original foundation that made PrismCast possible.
 
@@ -35,6 +35,7 @@ If you're already using Chrome Capture for Channels and it's working well for yo
 ### Channels and Streaming
 - **Preconfigured channels** - PrismCast comes ready to stream most major US television networks out of the box. Just authenticate with your TV provider and you're ready to go.
 - **Custom channel support** - Easily add your own streaming sources through the web interface, from YouTube live streams to niche international channels. If a site plays video in Chrome, there's a good chance PrismCast can capture it.
+- **Plex integration** - Built-in HDHomeRun emulation lets Plex discover PrismCast as a network tuner. Add it as a DVR source in Plex for live TV and recording.
 - **Multiple concurrent streams** - Stream up to 10 channels simultaneously (configurable), perfect for recording multiple shows at once.
 - **Session persistence** - Log in to your TV provider once and Chrome remembers your session across restarts.
 - **Quality presets** - Choose from 480p to 4K with automatic adaptation to your display capabilities.
@@ -58,6 +59,7 @@ If you're already using Chrome Capture for Channels and it's working well for yo
 - **Flexible capture modes** - Choose between FFmpeg-based capture (more stable for long recordings) or native Chrome capture (no dependencies).
 - **Site profile system** - Data-driven configuration for handling different streaming sites. Profiles define how to enter fullscreen, handle iframes, manage multi-channel players, and more. Adding support for a new site often requires just a few lines of configuration.
 - **Gracenote integration** - Channels can include station IDs for automatic guide data matching in Channels DVR.
+- **MPEG-TS output** - In addition to HLS, PrismCast serves MPEG-TS streams for HDHomeRun-compatible clients. FFmpeg remuxes fMP4 to MPEG-TS with codec copy (no transcoding).
 - **Modern codebase** - Clean TypeScript with ESM modules, full type safety, and comprehensive documentation.
 
 ## Requirements
@@ -65,7 +67,7 @@ If you're already using Chrome Capture for Channels and it's working well for yo
 - **macOS** - PrismCast is developed and tested on macOS. Linux and Windows may work but are untested.
 - **Node.js 22** or later
 - **Google Chrome** (PrismCast will try to find it automatically, or you can specify the path)
-- **Channels DVR** (or any client that can consume HLS streams)
+- **Channels DVR**, **Plex**, or any client that can consume HLS or MPEG-TS streams
 
 ## Installation
 
@@ -113,6 +115,19 @@ prismcast service uninstall # Remove the service
 
 That's it! Your channels will appear in the Channels DVR guide.
 
+## Quick Start with Plex
+
+PrismCast includes built-in HDHomeRun emulation, allowing Plex to discover it as a network tuner.
+
+1. **Start PrismCast** — HDHomeRun emulation starts automatically on port 5004
+2. **Add to Plex**:
+   - Go to Settings → Live TV & DVR → Set Up Plex DVR
+   - Enter your PrismCast server address with the HDHR port: `<your-prismcast-host>:5004`
+   - Plex will detect PrismCast as an HDHomeRun tuner and import available channels
+3. **Authenticate** — If channels require TV provider login, go to the PrismCast web interface at `http://localhost:5589` and use the Channels tab to log in
+
+HDHomeRun emulation requires FFmpeg capture mode (the default). It is automatically disabled in native capture mode.
+
 ## Configuration
 
 PrismCast includes a web-based configuration interface at `http://localhost:5589/#config`. From there you can:
@@ -120,6 +135,7 @@ PrismCast includes a web-based configuration interface at `http://localhost:5589
 - **Manage channels** - View all available channels, add your own custom channels, or override the defaults
 - **Adjust quality settings** - Choose from presets like 720p, 1080p, or 4K
 - **Configure HLS parameters** - Segment duration, buffer size, idle timeout
+- **Configure HDHomeRun** - Enable or disable Plex integration, set the HDHR port and device name
 - **Tune recovery behavior** - Adjust how aggressively PrismCast recovers from playback issues
 - **Backup and restore** - Download your configuration for safekeeping
 
@@ -166,8 +182,8 @@ RUN npm install -g prismcast
 # Set Chrome path
 ENV CHROME_BIN=/usr/bin/google-chrome-stable
 
-# Expose the web interface
-EXPOSE 5589
+# Expose the web interface and HDHomeRun emulation port
+EXPOSE 5589 5004
 
 # Run with virtual framebuffer
 CMD ["xvfb-run", "--auto-servernum", "--server-args=-screen 0 1920x1080x24", "prismcast"]
@@ -180,6 +196,7 @@ docker run -d \
   --name prismcast \
   --shm-size=1g \
   -p 5589:5589 \
+  -p 5004:5004 \
   -v prismcast-data:/root/.prismcast \
   your-prismcast-image
 ```
@@ -217,6 +234,9 @@ PrismCast can be configured entirely via environment variables, which is ideal f
 | `AUDIO_BITRATE` | 256000 | Audio bitrate in bps |
 | `FRAME_RATE` | 60 | Target frame rate |
 | `CAPTURE_MODE` | ffmpeg | Capture mode: "ffmpeg" (more stable) or "native" |
+| `HDHR_ENABLED` | true | Enable HDHomeRun emulation for Plex |
+| `HDHR_PORT` | 5004 | HDHomeRun emulation server port |
+| `HDHR_FRIENDLY_NAME` | PrismCast | Device name shown in Plex |
 | `HLS_SEGMENT_DURATION` | 2 | HLS segment duration in seconds |
 | `HLS_MAX_SEGMENTS` | 10 | Maximum segments kept in memory per stream |
 | `HLS_IDLE_TIMEOUT` | 30000 | Idle stream timeout in milliseconds |
@@ -229,6 +249,7 @@ docker run -d \
   --name prismcast \
   --shm-size=1g \
   -p 5589:5589 \
+  -p 5004:5004 \
   -v prismcast-data:/root/.prismcast \
   -e QUALITY_PRESET=1080p \
   -e VIDEO_BITRATE=15000000 \
