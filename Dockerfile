@@ -104,7 +104,8 @@ ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 # Expose ports
 # 5589 - PrismCast web UI and streaming
 # 6080 - noVNC web interface for Chrome access
-EXPOSE 5589 6080
+# 5004 - HDHomeRun Emulation
+EXPOSE 5589 6080 5004
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s \
