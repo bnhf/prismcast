@@ -236,7 +236,6 @@ export const DOMAIN_TO_PROFILE: Record<string, string> = {
 
   // Iframe-embedded players that require volume locking.
   "france24.com": "embeddedVolumeLock",
-  "sling.com": "embeddedVolumeLock",
 
   // Sites using the JavaScript fullscreen API.
   "hbomax.com": "fullscreenApi",
@@ -252,6 +251,11 @@ export const DOMAIN_TO_PROFILE: Record<string, string> = {
 
   // Sites using the JavaScript fullscreen API.
   "paramountplus.com": "fullscreenApi",
+
+  // Iframe-embedded players that require volume locking.
+  "sling.com": "embeddedVolumeLock",
+
+  // Sites using the JavaScript fullscreen API.
   "tbs.com": "fullscreenApi",
   "tntdrama.com": "fullscreenApi",
 
