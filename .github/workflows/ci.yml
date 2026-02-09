@@ -9,11 +9,17 @@ on:
   release:
     types: [ published ]
   workflow_dispatch:
+    inputs:
+      docker_tag:
+        description: 'Docker image tag for manual builds'
+        required: false
+        default: 'dev'
 
-# OIDC-related permissions for trusted publishing to NPMJS.
+# Permissions for trusted publishing to NPMJS and GitHub Container Registry.
 permissions:
   contents: read
   id-token: write
+  packages: write
 
 jobs:
 
@@ -82,3 +88,108 @@ jobs:
 
     - name: Publish the package to NPM.
       run: npm publish --access public --provenance
+
+  # Publish the Docker image to GitHub Container Registry.
+  publish-docker:
+    name: 'Publish Docker image'
+    needs: [build, publish-npm]
+
+    # Publish after npm succeeds on release events, or on manual workflow dispatch (where publish-npm is skipped).
+    if: |
+      always() &&
+      needs.build.result == 'success' &&
+      (needs.publish-npm.result == 'success' || needs.publish-npm.result == 'skipped') &&
+      ((github.event_name == 'release' && startsWith(github.ref, 'refs/tags/v')) || github.event_name == 'workflow_dispatch')
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout the repository.
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry.
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract version from tag.
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Build and push Docker image.
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ inputs.docker_tag || steps.version.outputs.VERSION }}
+            ${{ github.event_name == 'release' && format('ghcr.io/{0}:latest', github.repository) || '' }}
+
+  # Update the Homebrew formula in the tap repository.
+  publish-homebrew:
+    name: 'Update Homebrew formula'
+    needs: [build, publish-npm]
+
+    # Update only on release events with a version tag.
+    if: github.event_name == 'release' && startsWith(github.ref, 'refs/tags/v')
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Extract version from tag.
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Wait for npm registry and compute sha256.
+        id: npm
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          TARBALL_URL="https://registry.npmjs.org/prismcast/-/prismcast-${VERSION}.tgz"
+
+          # Poll until the tarball is available (npm publish propagation delay).
+          for i in $(seq 1 12); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$TARBALL_URL")
+            if [ "$STATUS" = "200" ]; then
+              break
+            fi
+            echo "Waiting for npm tarball (attempt $i/12)..."
+            sleep 5
+          done
+
+          if [ "$STATUS" != "200" ]; then
+            echo "::error::npm tarball not available after 60 seconds."
+            exit 1
+          fi
+
+          SHA256=$(curl -sL "$TARBALL_URL" | sha256sum | awk '{print $1}')
+          echo "SHA256=${SHA256}" >> $GITHUB_OUTPUT
+          echo "URL=${TARBALL_URL}" >> $GITHUB_OUTPUT
+
+      - name: Update Homebrew formula.
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          SHA256="${{ steps.npm.outputs.SHA256 }}"
+          URL="${{ steps.npm.outputs.URL }}"
+
+          # Fetch the current formula content and its git sha in a single API call to avoid race conditions.
+          RESPONSE=$(gh api repos/hjdhjd/homebrew-prismcast/contents/Formula/prismcast.rb --jq '{content, sha}')
+          FORMULA=$(echo "$RESPONSE" | jq -r '.content' | base64 -d)
+          FORMULA_SHA=$(echo "$RESPONSE" | jq -r '.sha')
+
+          # Update the url and sha256 lines in the formula.
+          FORMULA=$(echo "$FORMULA" | sed "s|url \".*\"|url \"${URL}\"|")
+          FORMULA=$(echo "$FORMULA" | sed "s|sha256 \".*\"|sha256 \"${SHA256}\"|")
+
+          # Push the updated formula via the GitHub Contents API.
+          ENCODED=$(echo "$FORMULA" | base64 -w 0)
+          gh api repos/hjdhjd/homebrew-prismcast/contents/Formula/prismcast.rb \
+            -X PUT \
+            -f message="Update PrismCast to ${VERSION}." \
+            -f content="${ENCODED}" \
+            -f sha="${FORMULA_SHA}"

@@ -5,10 +5,7 @@
 import type { Express, Request, Response } from "express";
 import { getChannelListing } from "../config/userChannels.js";
 
-/*
- * CHANNEL LISTING
- *
- * The channels endpoint provides a JSON representation of all available channels (predefined + user-defined). This gives programmatic access to the full channel
+/* The channels endpoint provides a JSON representation of all available channels (predefined + user-defined). This gives programmatic access to the full channel
  * list with source and enabled metadata, complementing the M3U playlist endpoint which only includes enabled channels in playlist format.
  */
 
@@ -58,12 +55,12 @@ export function setupChannelsEndpoint(app: Express): void {
 
     for(const entry of listing) {
 
-      // Build the response entry with required fields.
+      // Build the response entry with required fields. Canonical channels always have name; fallback to key is defensive.
       const channelEntry: ChannelEntry = {
 
         enabled: entry.enabled,
         key: entry.key,
-        name: entry.channel.name,
+        name: entry.channel.name ?? entry.key,
         source: entry.source,
         url: entry.channel.url
       };

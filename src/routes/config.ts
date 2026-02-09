@@ -8,10 +8,12 @@ import { CONFIG_METADATA, filterDefaults, getAdvancedSections, getConfigFilePath
   loadUserConfig, saveUserConfig, setNestedValue } from "../config/userConfig.js";
 import type { Express, Request, Response } from "express";
 import { LOG, escapeHtml, formatError, generateChannelKey, isRunningAsService, parseM3U } from "../utils/index.js";
+import type { Nullable, ProfileCategory } from "../types/index.js";
+import { getCanonicalKey, getProviderDisplayName, getProviderGroup, getProviderSelection, getResolvedChannel, hasMultipleProviders, isProviderVariant,
+  resolveProviderKey, setProviderSelection } from "../config/providers.js";
 import { getChannelsParseErrorMessage, getDisabledPredefinedChannels, getPredefinedChannels, getUserChannels, getUserChannelsFilePath, hasChannelsParseError,
-  isPredefinedChannel, isPredefinedChannelDisabled, isUserChannel, loadUserChannels, saveUserChannels, validateChannelKey, validateChannelName, validateChannelProfile,
-  validateChannelUrl, validateImportedChannels } from "../config/userChannels.js";
-import type { Nullable } from "../types/index.js";
+  isPredefinedChannel, isPredefinedChannelDisabled, isUserChannel, loadUserChannels, saveProviderSelections, saveUserChannels, validateChannelKey, validateChannelName,
+  validateChannelProfile, validateChannelUrl, validateImportedChannels } from "../config/userChannels.js";
 import { PREDEFINED_CHANNELS } from "../channels/index.js";
 import type { ProfileInfo } from "../config/profiles.js";
 import type { UserChannel } from "../config/userChannels.js";
@@ -20,10 +22,7 @@ import { getPresetOptionsWithDegradation } from "../config/presets.js";
 import { getProfiles } from "../config/profiles.js";
 import { getStreamCount } from "../streaming/registry.js";
 
-/*
- * CONFIGURATION WEB INTERFACE
- *
- * The /config endpoint provides a user-friendly web interface for editing PrismCast settings. Users can adjust values, see defaults, and understand what each
+/* The /config endpoint provides a user-friendly web interface for editing PrismCast settings. Users can adjust values, see defaults, and understand what each
  * setting does without editing JSON files directly. Changes require a server restart to take effect.
  *
  * The UI shows:
@@ -112,10 +111,7 @@ function scheduleServerRestart(reason: string): RestartResult {
   };
 }
 
-/*
- * CHANNEL FORM HELPERS
- *
- * These helper functions generate HTML for channel form fields. They are used by both the add and edit forms to reduce code duplication and ensure consistent
+/* These helper functions generate HTML for channel form fields. They are used by both the add and edit forms to reduce code duplication and ensure consistent
  * styling and behavior.
  */
 
@@ -183,6 +179,23 @@ function generateTextField(id: string, name: string, label: string, value: strin
 }
 
 /**
+ * Groups profiles by their declared category for UI display. Each profile declares its own category (api, keyboard, multiChannel, special) and this helper
+ * simply filters by that field. The display order (api, keyboard, special, multiChannel) is determined by the caller.
+ * @param profiles - List of available profiles with category, descriptions, and summaries.
+ * @returns Object with profiles grouped by category.
+ */
+function categorizeProfiles(profiles: ProfileInfo[]): Record<ProfileCategory, ProfileInfo[]> {
+
+  return {
+
+    api: profiles.filter((p) => (p.category === "api")),
+    keyboard: profiles.filter((p) => (p.category === "keyboard")),
+    multiChannel: profiles.filter((p) => (p.category === "multiChannel")),
+    special: profiles.filter((p) => (p.category === "special"))
+  };
+}
+
+/**
  * Generates HTML for the profile dropdown field with descriptions as tooltips and summaries inline.
  * @param id - The select element ID.
  * @param selectedProfile - The currently selected profile (empty string for autodetect).
@@ -193,21 +206,73 @@ function generateTextField(id: string, name: string, label: string, value: strin
 function generateProfileDropdown(id: string, selectedProfile: string, profiles: ProfileInfo[], showHint = true): string[] {
 
   const lines: string[] = [];
+  const groups = categorizeProfiles(profiles);
+
+  // Helper to generate option elements for a profile.
+  const renderOption = (profile: ProfileInfo): string => {
+
+    const selected = (profile.name === selectedProfile) ? " selected" : "";
+    const title = profile.description ? " title=\"" + escapeHtml(profile.description) + "\"" : "";
+    const displayText = profile.summary ? profile.name + " \u2014 " + profile.summary : profile.name;
+
+    return "<option value=\"" + escapeHtml(profile.name) + "\"" + title + selected + ">" + escapeHtml(displayText) + "</option>";
+  };
 
   lines.push("<div class=\"form-row\">");
   lines.push("<label for=\"" + id + "\">Profile</label>");
   lines.push("<select class=\"form-select field-wide\" id=\"" + id + "\" name=\"profile\">");
   lines.push("<option value=\"\">Autodetect (Recommended)</option>");
 
-  for(const profile of profiles) {
+  // Fullscreen API profiles (most common).
+  if(groups.api.length > 0) {
 
-    const selected = (profile.name === selectedProfile) ? " selected" : "";
-    const title = profile.description ? " title=\"" + escapeHtml(profile.description) + "\"" : "";
+    lines.push("<optgroup label=\"Fullscreen API\">");
 
-    // Show "name — summary" format for better discoverability.
-    const displayText = profile.summary ? profile.name + " \u2014 " + profile.summary : profile.name;
+    for(const profile of groups.api) {
 
-    lines.push("<option value=\"" + escapeHtml(profile.name) + "\"" + title + selected + ">" + escapeHtml(displayText) + "</option>");
+      lines.push(renderOption(profile));
+    }
+
+    lines.push("</optgroup>");
+  }
+
+  // Keyboard fullscreen profiles.
+  if(groups.keyboard.length > 0) {
+
+    lines.push("<optgroup label=\"Keyboard Fullscreen\">");
+
+    for(const profile of groups.keyboard) {
+
+      lines.push(renderOption(profile));
+    }
+
+    lines.push("</optgroup>");
+  }
+
+  // Special profiles.
+  if(groups.special.length > 0) {
+
+    lines.push("<optgroup label=\"Special\">");
+
+    for(const profile of groups.special) {
+
+      lines.push(renderOption(profile));
+    }
+
+    lines.push("</optgroup>");
+  }
+
+  // Multi-channel profiles (at the end).
+  if(groups.multiChannel.length > 0) {
+
+    lines.push("<optgroup label=\"Multi-Channel (needs selector)\">");
+
+    for(const profile of groups.multiChannel) {
+
+      lines.push(renderOption(profile));
+    }
+
+    lines.push("</optgroup>");
   }
 
   lines.push("</select>");
@@ -233,11 +298,7 @@ function generateProfileReference(profiles: ProfileInfo[]): string {
 
   const lines: string[] = [];
 
-  // Group profiles by category based on name prefix for automatic categorization.
-  const keyboardProfiles = profiles.filter((p) => p.name.startsWith("keyboard"));
-  const embeddedProfiles = profiles.filter((p) => p.name.startsWith("embedded"));
-  const apiProfiles = profiles.filter((p) => p.name.startsWith("api") || (p.name === "fullscreenApi") || (p.name === "brightcove"));
-  const specialProfiles = profiles.filter((p) => p.name === "staticPage");
+  const groups = categorizeProfiles(profiles);
 
   lines.push("<div id=\"profile-reference\" class=\"profile-reference\" style=\"display: none;\">");
   lines.push("<div class=\"profile-reference-header\">");
@@ -247,15 +308,15 @@ function generateProfileReference(profiles: ProfileInfo[]): string {
   lines.push("<p class=\"reference-intro\">Profiles configure how PrismCast interacts with different video players. Autodetect uses predefined ");
   lines.push("profiles for known sites. If video doesn't play or fullscreen fails, use this reference to experiment with different profiles.</p>");
 
-  // Keyboard fullscreen profiles.
-  if(keyboardProfiles.length > 0) {
+  // Fullscreen API profiles (most common).
+  if(groups.api.length > 0) {
 
     lines.push("<div class=\"profile-category\">");
-    lines.push("<h4>Keyboard Fullscreen Profiles</h4>");
-    lines.push("<p class=\"category-desc\">For sites that use the 'f' key to toggle fullscreen mode.</p>");
+    lines.push("<h4>Fullscreen API Profiles</h4>");
+    lines.push("<p class=\"category-desc\">For single-channel sites that require JavaScript's requestFullscreen() API instead of keyboard shortcuts.</p>");
     lines.push("<dl class=\"profile-list\">");
 
-    for(const profile of keyboardProfiles) {
+    for(const profile of groups.api) {
 
       lines.push("<dt>" + escapeHtml(profile.name) + "</dt>");
       lines.push("<dd>" + escapeHtml(profile.description) + "</dd>");
@@ -265,15 +326,15 @@ function generateProfileReference(profiles: ProfileInfo[]): string {
     lines.push("</div>");
   }
 
-  // Fullscreen API profiles.
-  if((apiProfiles.length > 0) || (embeddedProfiles.length > 0)) {
+  // Keyboard fullscreen profiles.
+  if(groups.keyboard.length > 0) {
 
     lines.push("<div class=\"profile-category\">");
-    lines.push("<h4>Fullscreen API Profiles</h4>");
-    lines.push("<p class=\"category-desc\">For sites that require JavaScript's requestFullscreen() API instead of keyboard shortcuts.</p>");
+    lines.push("<h4>Keyboard Fullscreen Profiles</h4>");
+    lines.push("<p class=\"category-desc\">For single-channel sites that use the 'f' key to toggle fullscreen mode.</p>");
     lines.push("<dl class=\"profile-list\">");
 
-    for(const profile of [ ...apiProfiles, ...embeddedProfiles ]) {
+    for(const profile of groups.keyboard) {
 
       lines.push("<dt>" + escapeHtml(profile.name) + "</dt>");
       lines.push("<dd>" + escapeHtml(profile.description) + "</dd>");
@@ -284,14 +345,33 @@ function generateProfileReference(profiles: ProfileInfo[]): string {
   }
 
   // Special profiles.
-  if(specialProfiles.length > 0) {
+  if(groups.special.length > 0) {
 
     lines.push("<div class=\"profile-category\">");
     lines.push("<h4>Special Profiles</h4>");
     lines.push("<p class=\"category-desc\">For non-standard use cases like static pages without video.</p>");
     lines.push("<dl class=\"profile-list\">");
 
-    for(const profile of specialProfiles) {
+    for(const profile of groups.special) {
+
+      lines.push("<dt>" + escapeHtml(profile.name) + "</dt>");
+      lines.push("<dd>" + escapeHtml(profile.description) + "</dd>");
+    }
+
+    lines.push("</dl>");
+    lines.push("</div>");
+  }
+
+  // Multi-channel profiles (requires channel selector) - at the end since these are more advanced.
+  if(groups.multiChannel.length > 0) {
+
+    lines.push("<div class=\"profile-category\">");
+    lines.push("<h4>Multi-Channel Profiles</h4>");
+    lines.push("<p class=\"category-desc\">For sites that host multiple live channels on a single page. These profiles require a channel selector ");
+    lines.push("to identify which channel to tune to. Set the Channel Selector field in Advanced Options when using these profiles.</p>");
+    lines.push("<dl class=\"profile-list\">");
+
+    for(const profile of groups.multiChannel) {
 
       lines.push("<dt>" + escapeHtml(profile.name) + "</dt>");
       lines.push("<dd>" + escapeHtml(profile.description) + "</dd>");
@@ -389,7 +469,7 @@ function generateChannelSelectorData(): string {
     const hostname = new URL(channel.url).hostname;
 
     byDomain[hostname] ??= [];
-    byDomain[hostname].push({ label: channel.name, value: channel.channelSelector });
+    byDomain[hostname].push({ label: channel.name ?? channel.channelSelector, value: channel.channelSelector });
   }
 
   // Sort entries within each domain alphabetically by label for consistent ordering in the datalist dropdown.
@@ -433,9 +513,17 @@ export function generateChannelRowHtml(key: string, profiles: ProfileInfo[]): Ch
     return { displayRow: "", editRow: null };
   }
 
+  // Resolve the selected provider's channel data for display purposes (profile column). This ensures the profile shown reflects the currently selected provider.
+  const resolvedKey = resolveProviderKey(key);
+  const resolvedChannel = getResolvedChannel(resolvedKey);
+  const displayChannel = resolvedChannel ?? channel;
+
   const isUser = isUserChannel(key);
   const isPredefined = isPredefinedChannel(key);
   const isDisabled = isPredefinedChannelDisabled(key);
+
+  // Check if this channel has multiple providers.
+  const providerGroup = getProviderGroup(key);
 
   // Generate display row. User channels get one CSS class, disabled predefined get another.
   const displayLines: string[] = [];
@@ -455,9 +543,34 @@ export function generateChannelRowHtml(key: string, profiles: ProfileInfo[]): Ch
 
   displayLines.push("<tr id=\"display-row-" + escapeHtml(key) + "\"" + rowClassAttr + ">");
   displayLines.push("<td><code>" + escapeHtml(key) + "</code></td>");
-  displayLines.push("<td>" + escapeHtml(channel.name) + "</td>");
-  displayLines.push("<td class=\"channel-url\" title=\"" + escapeHtml(channel.url) + "\">" + escapeHtml(channel.url) + "</td>");
-  displayLines.push("<td>" + (channel.profile ? escapeHtml(channel.profile) : "<em>auto</em>") + "</td>");
+  displayLines.push("<td>" + escapeHtml(channel.name ?? key) + "</td>");
+
+  // Source column: dropdown for multi-provider channels, static domain text for single-provider.
+  displayLines.push("<td>");
+
+  if(hasMultipleProviders(key) && providerGroup) {
+
+    // Multi-provider: show dropdown.
+    const currentSelection = getProviderSelection(key) ?? key;
+
+    displayLines.push("<select class=\"provider-select\" data-channel=\"" + escapeHtml(key) + "\" onchange=\"updateProviderSelection(this)\">");
+
+    for(const variant of providerGroup.variants) {
+
+      const selected = (variant.key === currentSelection) ? " selected" : "";
+
+      displayLines.push("<option value=\"" + escapeHtml(variant.key) + "\"" + selected + ">" + escapeHtml(variant.label) + "</option>");
+    }
+
+    displayLines.push("</select>");
+  } else {
+
+    // Single-provider: show provider name if set, otherwise the domain.
+    displayLines.push(escapeHtml(channel.provider ?? getProviderDisplayName(channel.url)));
+  }
+
+  displayLines.push("</td>");
+  displayLines.push("<td>" + (displayChannel.profile ? escapeHtml(displayChannel.profile) : "<em>auto</em>") + "</td>");
 
   // Actions column.
   displayLines.push("<td>");
@@ -510,7 +623,7 @@ export function generateChannelRowHtml(key: string, profiles: ProfileInfo[]): Ch
     editLines.push("<input type=\"hidden\" name=\"key\" value=\"" + escapeHtml(key) + "\">");
 
     // Channel name.
-    editLines.push(...generateTextField("edit-name-" + key, "name", "Display Name", channel.name, {
+    editLines.push(...generateTextField("edit-name-" + key, "name", "Display Name", channel.name ?? key, {
 
       hint: "Friendly name shown in the playlist and UI.",
       required: true
@@ -774,7 +887,7 @@ function getFieldWidthClass(setting: SettingMetadata): string {
 function generateSettingField(setting: SettingMetadata, currentValue: unknown, defaultValue: unknown, envOverride: string | undefined,
   validationError?: string): string {
 
-  const isDisabled = envOverride !== undefined;
+  const isDisabled = (envOverride !== undefined) || (setting.disabledReason !== undefined);
   const inputId = setting.path.replace(/\./g, "-");
   const hasError = validationError !== undefined;
   const isModified = !isDisabled && !isEqualToDefault(currentValue, defaultValue);
@@ -829,7 +942,7 @@ function generateSettingField(setting: SettingMetadata, currentValue: unknown, d
 
   lines.push(escapeHtml(setting.label));
 
-  if(isDisabled) {
+  if(envOverride !== undefined) {
 
     lines.push("<span class=\"env-badge\">ENV</span>");
   }
@@ -1017,6 +1130,12 @@ function generateSettingField(setting: SettingMetadata, currentValue: unknown, d
 
   // Add description.
   lines.push("<div class=\"form-description\">" + escapeHtml(setting.description) + "</div>");
+
+  // Add disabled reason warning when a setting is locked out due to an upstream issue.
+  if(setting.disabledReason) {
+
+    lines.push("<div class=\"form-warning\">" + escapeHtml(setting.disabledReason) + "</div>");
+  }
 
   // Add inline message for degraded preset.
   if(selectedPresetDegradedTo) {
@@ -1226,11 +1345,11 @@ function parseFormValue(setting: SettingMetadata, value: string): Nullable<boole
 export function generateChannelsPanel(channelMessage?: string, channelError?: boolean, editingChannelKey?: string, showAddForm?: boolean,
   formErrors?: Map<string, string>, formValues?: Map<string, string>): string {
 
-  // Get all channels including disabled predefined ones. User channels override predefined.
+  // Get all channels including disabled predefined ones. User channels override predefined. Filter out provider variants — only canonical keys are shown in the UI.
   const userChannels = getUserChannels();
   const predefinedChannels = getPredefinedChannels();
   const allChannelKeys = new Set([ ...Object.keys(predefinedChannels), ...Object.keys(userChannels) ]);
-  const channelKeys = [...allChannelKeys].sort();
+  const channelKeys = [...allChannelKeys].filter((key) => !isProviderVariant(key)).sort();
   const profiles = getProfiles();
   const disabledPredefined = getDisabledPredefinedChannels();
   const predefinedCount = Object.keys(predefinedChannels).length;
@@ -1399,7 +1518,7 @@ export function generateChannelsPanel(channelMessage?: string, channelError?: bo
   lines.push("<tr>");
   lines.push("<th class=\"col-key\">Key</th>");
   lines.push("<th class=\"col-name\">Name</th>");
-  lines.push("<th class=\"col-url\">URL</th>");
+  lines.push("<th class=\"col-source\">Source</th>");
   lines.push("<th class=\"col-profile\">Profile</th>");
   lines.push("<th class=\"col-actions\">Actions</th>");
   lines.push("</tr>");
@@ -2063,6 +2182,74 @@ export function setupConfigEndpoint(app: Express): void {
 
       LOG.error("Failed to toggle predefined channel: %s", formatError(error));
       res.status(500).json({ error: "Failed to toggle channel: " + formatError(error), success: false });
+    }
+  });
+
+  // POST /config/provider - Update provider selection for a multi-provider channel.
+  app.post("/config/provider", async (req: Request, res: Response): Promise<void> => {
+
+    try {
+
+      const body = req.body as { channel?: string; provider?: string };
+      const channelKey = body.channel?.trim();
+      const providerKey = body.provider?.trim();
+
+      // Validate channel key is provided.
+      if(!channelKey) {
+
+        res.status(400).json({ error: "Channel key is required.", success: false });
+
+        return;
+      }
+
+      // Validate provider key is provided.
+      if(!providerKey) {
+
+        res.status(400).json({ error: "Provider key is required.", success: false });
+
+        return;
+      }
+
+      // Canonicalize the channel key to ensure selections are stored under the canonical key, not variant keys.
+      const canonicalKey = getCanonicalKey(channelKey);
+
+      // Validate the channel has provider options.
+      const providerGroup = getProviderGroup(canonicalKey);
+
+      if(!providerGroup) {
+
+        res.status(400).json({ error: "Channel '" + canonicalKey + "' does not have multiple providers.", success: false });
+
+        return;
+      }
+
+      // Validate the provider key is valid for this channel.
+      const validProviderKeys = providerGroup.variants.map((v) => v.key);
+
+      if(!validProviderKeys.includes(providerKey)) {
+
+        res.status(400).json({ error: "Invalid provider '" + providerKey + "' for channel '" + canonicalKey + "'.", success: false });
+
+        return;
+      }
+
+      // Update the provider selection.
+      setProviderSelection(canonicalKey, providerKey);
+
+      // Save to disk.
+      await saveProviderSelections();
+
+      // Get the resolved channel to return its profile for UI update.
+      const resolvedChannel = getResolvedChannel(providerKey);
+      const profile = resolvedChannel?.profile ?? null;
+
+      LOG.info("Provider selection for '%s' changed to '%s'.", canonicalKey, providerKey);
+
+      res.json({ channel: canonicalKey, profile, provider: providerKey, success: true });
+    } catch(error) {
+
+      LOG.error("Failed to update provider selection: %s", formatError(error));
+      res.status(500).json({ error: "Failed to update provider: " + formatError(error), success: false });
     }
   });
 

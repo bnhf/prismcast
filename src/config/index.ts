@@ -7,10 +7,7 @@ import { DEFAULTS, loadUserConfig, mergeConfiguration } from "./userConfig.js";
 import { formatPresetStatus, getEffectivePreset, getValidPresetIds } from "./presets.js";
 import { LOG } from "../utils/index.js";
 
-/*
- * CONFIGURATION
- *
- * The CONFIG object centralizes all tunable parameters for the application. Configuration uses a layered approach with the following priority (highest to lowest):
+/* The CONFIG object centralizes all tunable parameters for the application. Configuration uses a layered approach with the following priority (highest to lowest):
  *
  * 1. Environment variables (SCREAMING_SNAKE_CASE naming)
  * 2. User config file (~/.prismcast/config.json)
@@ -81,10 +78,7 @@ export function getDefaults(): Config {
   return JSON.parse(JSON.stringify(DEFAULTS)) as Config;
 }
 
-/*
- * CONFIGURATION VALIDATION
- *
- * Before starting the server, we validate all configuration values to catch errors early. Invalid configurations like negative timeouts or out-of-range bitrates
+/* Before starting the server, we validate all configuration values to catch errors early. Invalid configurations like negative timeouts or out-of-range bitrates
  * would cause subtle runtime failures that are difficult to diagnose. By validating upfront, we provide clear error messages and prevent the server from starting
  * in a misconfigured state.
  *
@@ -257,11 +251,21 @@ export function validateConfiguration(): void {
     errors.push(hlsIdleTimeoutError);
   }
 
+  // Force FFmpeg capture mode. Chrome's native fMP4 MediaRecorder produces corrupt output after 20-30 minutes of continuous recording. Until a future Chrome
+  // release resolves this, native capture mode is disabled entirely.
+  if(CONFIG.streaming.captureMode !== "ffmpeg") {
+
+    LOG.warn("Native capture mode is disabled due to a Chrome fMP4 MediaRecorder bug. Forcing FFmpeg capture mode.");
+
+    CONFIG.streaming.captureMode = "ffmpeg";
+  }
+
   // Validate HDHomeRun configuration when enabled.
   if(CONFIG.hdhr.enabled) {
 
-    // HDHR requires FFmpeg for MPEG-TS remuxing. In native mode, FFmpeg is not guaranteed to be available. Disable HDHR and warn the operator.
-    if(CONFIG.streaming.captureMode === "native") {
+    // HDHR requires FFmpeg for MPEG-TS remuxing. In native mode, FFmpeg is not guaranteed to be available. Disable HDHR and warn the operator. The string cast
+    // suppresses TS2367 because captureMode is currently forced to "ffmpeg" above — this guard will become reachable again when native mode is re-enabled.
+    if((CONFIG.streaming.captureMode as string) === "native") {
 
       CONFIG.hdhr.enabled = false;
 

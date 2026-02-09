@@ -7,10 +7,7 @@ import { CONFIG } from "../config/index.js";
 import { getAllChannels } from "../config/userChannels.js";
 import { resolveProfile } from "../config/profiles.js";
 
-/*
- * PLAYLIST GENERATION
- *
- * The playlist endpoint generates an M3U playlist in Channels DVR format. The playlist includes all configured video channels with their stream URLs dynamically
+/* The playlist endpoint generates an M3U playlist in Channels DVR format. The playlist includes all configured video channels with their stream URLs dynamically
  * constructed from the request host header so the playlist works regardless of how the server is accessed.
  */
 
@@ -67,7 +64,7 @@ export function generatePlaylistContent(baseUrl: string): string {
     }
 
     // We use the channel key as the channel-id and the friendly name for display. HLS URLs are used for Channels DVR compatibility.
-    const displayName = channel.name;
+    const displayName = channel.name ?? name;
     const streamUrl = baseUrl + "/hls/" + name + "/stream.m3u8";
 
     // Build the EXTINF line with required channel-id attribute and tvg-name for the friendly display name. Include tvc-guide-stationid for Gracenote guide data

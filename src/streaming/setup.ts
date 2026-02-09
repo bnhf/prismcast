@@ -4,24 +4,22 @@
  */
 import type { Channel, Nullable, ResolvedSiteProfile, UrlValidation } from "../types/index.js";
 import type { Frame, Page } from "puppeteer-core";
-import { LOG, delay, formatError, registerAbortController, retryOperation, runWithStreamContext, spawnFFmpeg } from "../utils/index.js";
+import { LOG, delay, extractDomain, formatError, registerAbortController, retryOperation, runWithStreamContext, spawnFFmpeg } from "../utils/index.js";
 import type { MonitorStreamInfo, RecoveryMetrics, TabReplacementResult } from "./monitor.js";
 import { closeBrowser, getCurrentBrowser, getStream, minimizeBrowserWindow, registerManagedPage, unregisterManagedPage } from "../browser/index.js";
 import { getNextStreamId, getStreamCount } from "./registry.js";
 import { getProfileForChannel, getProfileForUrl, getProfiles, resolveProfile } from "../config/profiles.js";
+import { initializePlayback, navigateToPage } from "../browser/video.js";
 import { CONFIG } from "../config/index.js";
 import type { FFmpegProcess } from "../utils/index.js";
 import type { Readable } from "node:stream";
 import { getEffectiveViewport } from "../config/presets.js";
+import { getProviderDisplayName } from "../config/providers.js";
 import { monitorPlaybackHealth } from "./monitor.js";
 import { pipeline } from "node:stream/promises";
 import { resizeAndMinimizeWindow } from "../browser/cdp.js";
-import { tuneToChannel } from "../browser/video.js";
 
-/*
- * STREAM SETUP
- *
- * This module contains the common stream setup logic for HLS streaming. The core logic is split into two functions:
+/* This module contains the common stream setup logic for HLS streaming. The core logic is split into two functions:
  *
  * 1. createPageWithCapture(): Creates a browser page, starts media capture, navigates to the URL, and sets up video playback. This is the reusable core that both
  *    initial stream setup and tab replacement recovery use.
@@ -90,6 +88,12 @@ export interface StreamSetupOptions {
   // channel.channelSelector via getProfileForChannel.
   channelSelector?: string;
 
+  // Click selector for play button overlays. Only used for ad-hoc streams. For predefined channels, the selector comes from the profile definition.
+  clickSelector?: string;
+
+  // Whether to click an element to start playback. Only used for ad-hoc streams. For predefined channels, this comes from the profile definition.
+  clickToPlay?: boolean;
+
   // Whether to treat this as a static page without video.
   noVideo?: boolean;
 
@@ -132,6 +136,9 @@ export interface StreamSetupResult {
 
   // The name of the resolved profile (e.g., "keyboardDynamic", "fullscreenApi", "default").
   profileName: string;
+
+  // Friendly provider display name derived from the URL domain via DOMAIN_CONFIG (e.g., "Hulu" for hulu.com). Used for SSE status display.
+  providerName: string;
 
   // The raw capture stream from puppeteer-stream. Must be destroyed before closing the page.
   rawCaptureStream: Readable;
@@ -232,22 +239,6 @@ function generateRequestId(): string {
 }
 
 /**
- * Extracts the domain from a URL, removing the www. prefix for cleaner display. Returns undefined if the URL cannot be parsed.
- * @param url - The URL to extract the domain from.
- * @returns The domain without www. prefix, or undefined if parsing fails.
- */
-function extractDomain(url: string): string | undefined {
-
-  try {
-
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-
-    return undefined;
-  }
-}
-
-/**
  * Generates a concise stream identifier for logging purposes. The identifier combines the channel name or hostname with a unique request ID, making it easy to
  * trace related log messages. We prefer the channel name when available because it's more meaningful than a hostname.
  * @param channelName - The channel name if streaming a named channel.
@@ -264,20 +255,10 @@ export function generateStreamId(channelName: string | undefined, url: string | 
     return [ channelName, "-", requestId ].join("");
   }
 
-  // For direct URL requests, extract the hostname for the prefix.
+  // For direct URL requests, use the concise domain as the prefix.
   if(url) {
 
-    const domain = extractDomain(url);
-
-    if(domain) {
-
-      return [ domain, "-", requestId ].join("");
-    }
-
-    // If URL parsing fails, use a truncated version of the URL. This handles malformed URLs gracefully.
-    const truncated = url.length > 20 ? [ url.substring(0, 20), "..." ].join("") : url;
-
-    return [ truncated, "-", requestId ].join("");
+    return [ extractDomain(url), "-", requestId ].join("");
   }
 
   // Fallback when neither channel name nor URL is available. This shouldn't happen in normal operation but provides a valid ID for edge cases.
@@ -336,7 +317,7 @@ export function validateStreamUrl(url: string | undefined): UrlValidation {
  * - Creating a new browser page with CSP bypass
  * - Initializing media capture (native fMP4 or WebM+FFmpeg)
  * - Navigating to the URL with retry
- * - Setting up video playback via tuneToChannel()
+ * - Setting up video playback via navigateToPage() + initializePlayback()
  *
  * The caller is responsible for:
  * - Creating the segmenter and piping captureStream to it
@@ -559,18 +540,36 @@ export async function createPageWithCapture(options: CreatePageWithCaptureOption
 
     if(profile.noVideo === false) {
 
-      // Since we don't pass an earlySuccessCheck, retryOperation will always return the value (not void). The type assertion is safe.
-      const tuneResult = await retryOperation(
-        async (): Promise<{ context: Frame | Page }> => {
+      // Phase 1: Navigate to the page with retry. The 10-second navigationTimeout is appropriate for page loads, and retryOperation correctly reloads the page on
+      // genuine navigation failures. Navigation is wrapped in retryOperation separately from channel selection so the timeout does not race with the internal click
+      // retry loops in channel selection strategies (guideGrid can take 15-20 seconds for binary search + click retries).
+      await retryOperation(
+        async (): Promise<void> => {
 
-          return tuneToChannel(page, url, profile);
+          await navigateToPage(page, url, profile);
         },
         CONFIG.streaming.maxNavigationRetries,
         CONFIG.streaming.navigationTimeout,
         "page navigation for " + url,
         undefined,
         () => page.isClosed()
-      ) as { context: Frame | Page };
+      );
+
+      // Phase 2: Channel selection + video setup. Runs after navigation succeeds with no outer timeout racing against internal click retries. Each sub-step
+      // (selectChannel, waitForVideoReady, etc.) has its own internal timeout via videoTimeout and click retry constants. A 30-second safety-net timeout prevents
+      // pathological hangs if multiple internal timeouts chain sequentially.
+      const PLAYBACK_INIT_TIMEOUT = 30000;
+
+      const tuneResult = await Promise.race([
+        initializePlayback(page, profile),
+        new Promise<never>((_, reject) => {
+
+          setTimeout(() => {
+
+            reject(new Error("Playback initialization timed out after " + String(PLAYBACK_INIT_TIMEOUT) + "ms."));
+          }, PLAYBACK_INIT_TIMEOUT);
+        })
+      ]);
 
       context = tuneResult.context;
     } else {
@@ -580,7 +579,7 @@ export async function createPageWithCapture(options: CreatePageWithCaptureOption
     }
   } catch(error) {
 
-    // Clean up on navigation failure. Destroy the raw capture stream first to ensure chrome.tabCapture releases the capture.
+    // Clean up on navigation or playback initialization failure. Destroy the raw capture stream first to ensure chrome.tabCapture releases the capture.
     if(!rawCaptureStream.destroyed) {
 
       rawCaptureStream.destroy();
@@ -655,7 +654,7 @@ async function resolveRedirectUrl(url: string): Promise<string | null> {
  */
 export async function setupStream(options: StreamSetupOptions, onCircuitBreak: () => void): Promise<StreamSetupResult> {
 
-  const { channel, channelName, channelSelector, noVideo, onTabReplacementFactory, profileOverride, url } = options;
+  const { channel, channelName, channelSelector, clickSelector, clickToPlay, noVideo, onTabReplacementFactory, profileOverride, url } = options;
 
   // Generate stream identifiers early so all log messages include them.
   const streamId = generateStreamId(channelName, url);
@@ -729,8 +728,18 @@ export async function setupStream(options: StreamSetupOptions, onCircuitBreak: (
       profile = { ...profile, channelSelector };
     }
 
+    // Merge the ad-hoc clickToPlay and clickSelector options into the profile. clickSelector implies clickToPlay. For ad-hoc streams, these enable clicking an
+    // element to start playback - either the video element (clickToPlay alone) or a play button overlay (clickToPlay + clickSelector).
+    if(clickToPlay || clickSelector) {
+
+      profile = { ...profile, clickToPlay: true, ...(clickSelector ? { clickSelector } : {}) };
+    }
+
     // Compute the metadata comment for FFmpeg. Prefer the friendly channel name, fall back to the channel key, or extract the domain from the URL.
     const metadataComment = channel?.name ?? channelName ?? extractDomain(url);
+
+    // Compute the friendly provider display name once for use in both the monitor and the setup result.
+    const providerName = getProviderDisplayName(url);
 
     // Create the tab replacement handler if a factory was provided. This is done after profile resolution so the handler has access to the final profile.
     const onTabReplacement = onTabReplacementFactory ? onTabReplacementFactory(numericStreamId, streamId, profile, metadataComment) : undefined;
@@ -800,6 +809,7 @@ export async function setupStream(options: StreamSetupOptions, onCircuitBreak: (
 
       channelName: channel?.name ?? null,
       numericStreamId,
+      providerName,
       startTime
     };
 
@@ -861,6 +871,7 @@ export async function setupStream(options: StreamSetupOptions, onCircuitBreak: (
       page,
       profile,
       profileName,
+      providerName,
       rawCaptureStream,
       startTime,
       stopMonitor,

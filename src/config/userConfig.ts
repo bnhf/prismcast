@@ -11,10 +11,7 @@ import path from "node:path";
 
 const { promises: fsPromises } = fs;
 
-/*
- * USER CONFIGURATION FILE
- *
- * PrismCast stores user configuration in ~/.prismcast/config.json. This file allows users to customize settings without using environment variables. The
+/* PrismCast stores user configuration in ~/.prismcast/config.json. This file allows users to customize settings without using environment variables. The
  * configuration system uses a layered approach:
  *
  * 1. Hard-coded defaults (defined in DEFAULTS)
@@ -25,10 +22,7 @@ const { promises: fsPromises } = fs;
  * convenience. The web UI at /config provides a user-friendly interface for editing the config file.
  */
 
-/*
- * SETTING METADATA
- *
- * Each configurable setting has metadata describing its type, valid range, environment variable name, and human-readable description. This metadata is used by the
+/* Each configurable setting has metadata describing its type, valid range, environment variable name, and human-readable description. This metadata is used by the
  * /config web UI to render appropriate form fields and validation, and by the validation system to check values before saving.
  */
 
@@ -44,6 +38,10 @@ export interface SettingMetadata {
   // Path to a boolean setting that must be enabled for this setting to be active. When the referenced setting is false, this field is visually greyed out in the
   // UI. The field values are still submitted during save to avoid losing custom values when the parent toggle is temporarily disabled.
   dependsOn?: string;
+
+  // When set, the field is disabled in the UI and this message is shown as a warning explaining why. The setting's value is forced to its default and cannot be
+  // changed by the user. Used for temporarily disabling options due to upstream issues (e.g., Chrome bugs).
+  disabledReason?: string;
 
   // Divisor for converting stored value to display value (e.g., 1000 to convert ms to seconds). When set, the UI displays value/displayDivisor and stores
   // submittedValue*displayDivisor.
@@ -463,6 +461,8 @@ export const CONFIG_METADATA: Record<string, SettingMetadata[]> = {
 
       description: "FFmpeg (recommended) provides reliable capture for long recordings. Native mode captures directly from Chrome without an external " +
         "process, but may require stream recovery after 20-30 minutes of continuous use.",
+      disabledReason: "Native capture mode is temporarily disabled due to a Chrome bug that causes fMP4 MediaRecorder to produce corrupt output after " +
+        "20-30 minutes of continuous recording. FFmpeg mode is required until a future Chrome release resolves this issue.",
       envVar: "CAPTURE_MODE",
       label: "Capture Mode",
       path: "streaming.captureMode",
@@ -564,10 +564,7 @@ export const CONFIG_METADATA: Record<string, SettingMetadata[]> = {
   ]
 };
 
-/*
- * USER CONFIG TYPES
- *
- * The user config file stores partial configuration - only the settings that differ from defaults. All fields are optional because missing fields use defaults.
+/* The user config file stores partial configuration - only the settings that differ from defaults. All fields are optional because missing fields use defaults.
  */
 
 /**
@@ -705,10 +702,7 @@ export interface UserConfigLoadResult {
   parseErrorMessage?: string;
 }
 
-/*
- * CONFIG FILE PATH
- *
- * The config file is stored in the same data directory as the Chrome profile (~/.prismcast).
+/* The config file is stored in the same data directory as the Chrome profile (~/.prismcast).
  */
 
 const dataDir = path.join(os.homedir(), ".prismcast");
@@ -723,10 +717,7 @@ export function getConfigFilePath(): string {
   return configFilePath;
 }
 
-/*
- * CONFIG FILE OPERATIONS
- *
- * These functions handle reading and writing the config file. All operations are async and handle errors gracefully.
+/* These functions handle reading and writing the config file. All operations are async and handle errors gracefully.
  */
 
 /**
@@ -786,10 +777,7 @@ export async function saveUserConfig(config: UserConfig): Promise<void> {
   LOG.info("Configuration saved to %s.", configFilePath);
 }
 
-/*
- * ENVIRONMENT VARIABLE DETECTION
- *
- * These functions detect which settings are overridden by environment variables, so the UI can disable those fields and show appropriate warnings.
+/* These functions detect which settings are overridden by environment variables, so the UI can disable those fields and show appropriate warnings.
  */
 
 /**
@@ -816,10 +804,7 @@ export function getEnvOverrides(): Map<string, string> {
   return overrides;
 }
 
-/*
- * CONFIGURATION MERGING
- *
- * These functions merge defaults, user config, and environment overrides into the final CONFIG object.
+/* These functions merge defaults, user config, and environment overrides into the final CONFIG object.
  */
 
 /**
@@ -870,7 +855,7 @@ export const DEFAULTS: Config = {
 
 
     bufferingGracePeriod: 10000,
-    channelSelectorDelay: 3000,
+    channelSelectorDelay: 5000,
     channelSwitchDelay: 4000,
     clickToPlayDelay: 1000,
     iframeInitDelay: 1500,
@@ -1035,9 +1020,8 @@ export function mergeConfiguration(userConfig: UserConfig): Config {
     }
   }
 
-  /* NON-CONFIG_METADATA FIELDS — These fields are stored in the user config file but are not part of CONFIG_METADATA because they are complex types (arrays,
-   * auto-generated strings) that don't fit the standard scalar setting model. When adding a new field here, you MUST also add corresponding logic in
-   * filterDefaults() below to preserve it during save. The filterDefaults() counterpart is marked with the same "NON-CONFIG_METADATA FIELDS" heading.
+  /* These fields are stored in the user config file but are not part of CONFIG_METADATA because they are complex types (arrays, auto-generated strings) that don't
+   * fit the standard scalar setting model. When adding a new field here, you must also add corresponding preservation logic in filterDefaults() below.
    */
   if(Array.isArray(userConfig.channels?.disabledPredefined)) {
 
@@ -1071,10 +1055,7 @@ export function mergeConfiguration(userConfig: UserConfig): Config {
   return config;
 }
 
-/*
- * UI TAB CONFIGURATION
- *
- * The configuration UI uses a simplified two-tab structure: Settings (common options) and Advanced (expert tuning). Rather than annotating every setting with UI
+/* The configuration UI uses a simplified two-tab structure: Settings (common options) and Advanced (expert tuning). Rather than annotating every setting with UI
  * placement, we explicitly list the Settings tab contents and derive everything else.
  *
  * Architecture:
@@ -1302,10 +1283,7 @@ export function getAdvancedSections(): AdvancedSection[] {
     }));
 }
 
-/*
- * DEFAULT VALUE FILTERING
- *
- * When saving user configuration, we only want to persist values that differ from defaults. This keeps the config file clean and makes it easy to see what the user has
+/* When saving user configuration, we only want to persist values that differ from defaults. This keeps the config file clean and makes it easy to see what the user has
  * actually customized. It also ensures that when defaults change in a new version, users automatically get the new defaults for settings they haven't explicitly set.
  */
 
@@ -1399,8 +1377,8 @@ export function filterDefaults(config: UserConfig): UserConfig {
     }
   }
 
-  /* NON-CONFIG_METADATA FIELDS — Counterpart to the same section in mergeConfiguration() above. When adding a new non-CONFIG_METADATA field to
-   * mergeConfiguration(), you MUST also add corresponding preservation logic here, otherwise the field will be lost when saving configuration.
+  /* Counterpart to the non-CONFIG_METADATA handling in mergeConfiguration() above. When adding a new complex field there, you must also add corresponding
+   * preservation logic here, otherwise the field will be lost when saving configuration.
    */
   const configChannelsDisabled = getNestedValue(config, "channels.disabledPredefined") as string[] | undefined;
 

@@ -6,10 +6,7 @@ import type { ClientTypeCount } from "./clients.js";
 import { EventEmitter } from "events";
 import type { Nullable } from "../types/index.js";
 
-/*
- * STATUS TYPES
- *
- * These interfaces define the structure of status updates sent to SSE clients. StreamStatus contains per-stream health information, while SystemStatus contains
+/* These interfaces define the structure of status updates sent to SSE clients. StreamStatus contains per-stream health information, while SystemStatus contains
  * overall system health.
  */
 
@@ -39,6 +36,7 @@ export interface StreamStatus {
   memoryBytes: number;
   networkState: number;
   pageReloadsInWindow: number;
+  providerName: string;
   readyState: number;
   recoveryAttempts: number;
   showName: string;
@@ -83,10 +81,7 @@ export interface StatusSnapshot {
  */
 export type StatusEventType = "snapshot" | "streamAdded" | "streamHealthChanged" | "streamRemoved" | "systemStatusChanged";
 
-/*
- * STATUS EMITTER
- *
- * A singleton EventEmitter that broadcasts status updates to all subscribed SSE clients. The emitter maintains current state for all streams, allowing new clients
+/* A singleton EventEmitter that broadcasts status updates to all subscribed SSE clients. The emitter maintains current state for all streams, allowing new clients
  * to receive a snapshot of current status immediately upon connecting.
  */
 
@@ -103,6 +98,7 @@ statusEmitter.setMaxListeners(100);
 export function createInitialStreamStatus(options: {
   channelName: Nullable<string>;
   numericStreamId: number;
+  providerName: string;
   startTime: Date;
   url: string;
 }): StreamStatus {
@@ -125,6 +121,7 @@ export function createInitialStreamStatus(options: {
     memoryBytes: 0,
     networkState: 0,
     pageReloadsInWindow: 0,
+    providerName: options.providerName,
     readyState: 0,
     recoveryAttempts: 0,
     showName: "",

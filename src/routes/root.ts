@@ -12,10 +12,7 @@ import { getUITabs } from "../config/userConfig.js";
 import { resolveBaseUrl } from "./playlist.js";
 import { resolveProfile } from "../config/profiles.js";
 
-/*
- * LANDING PAGE
- *
- * The landing page provides operators with all the information they need to integrate with Channels DVR. It features a tabbed interface with five sections:
+/* The landing page provides operators with all the information they need to integrate with Channels DVR. It features a tabbed interface with five sections:
  *
  * 1. Overview - Introduction to PrismCast and Quick Start instructions
  * 2. Playlist - The full M3U playlist with copy functionality
@@ -162,10 +159,11 @@ function generateStatusScript(): string {
     "  return timeStr;",
     "}",
 
-    // Extract domain from URL for display.
+    // Extract concise domain from URL for display (last two hostname parts). Mirrors the server-side extractDomain() in utils/format.ts.
     "function getDomain(url) {",
     "  try {",
-    "    return new URL(url).hostname;",
+    "    var parts = new URL(url).hostname.split('.');",
+    "    return parts.length > 2 ? parts.slice(-2).join('.') : parts.join('.');",
     "  } catch (e) {",
     "    return url;",
     "  }",
@@ -271,7 +269,7 @@ function generateStatusScript(): string {
     "    var isExpanded = expandedStreams[id];",
     "    var chevron = isExpanded ? '&#9660;' : '&#9654;';",
     "    var rowTint = getRowTint(s.health);",
-    "    var channelText = s.channel || getDomain(s.url);",
+    "    var channelText = s.channel || s.providerName || getDomain(s.url);",
     "    var channelDisplay = s.logoUrl",
     "      ? '<img src=\"' + s.logoUrl + '\" class=\"channel-logo\" alt=\"' + channelText + '\" title=\"' + channelText + '\" ' +",
     "        'onerror=\"this.style.display=\\'none\\';this.nextElementSibling.style.display=\\'inline\\'\">' +",
@@ -504,7 +502,9 @@ function generateApiReferenceContent(): string {
     "<tr>",
     "<td class=\"endpoint\"><code>GET /play</code></td>",
     "<td>Stream any URL without creating a channel definition. Pass the URL as <code>?url=&lt;url&gt;</code>. " +
-    "Advanced: <code>&amp;profile=</code> overrides auto-detection, <code>&amp;selector=</code> picks a channel on multi-channel sites.</td>",
+    "Advanced: <code>&amp;profile=</code> overrides auto-detection, <code>&amp;selector=</code> picks a channel on multi-channel sites, " +
+    "<code>&amp;clickToPlay=true</code> clicks the video to start playback, <code>&amp;clickSelector=</code> specifies a play button element to click " +
+    "(implies clickToPlay).</td>",
     "</tr>",
     "<tr>",
     "<td class=\"endpoint\"><code>GET /stream/:name</code></td>",
@@ -544,7 +544,7 @@ function generateApiReferenceContent(): string {
     "</tr>",
     "<tr>",
     "<td class=\"endpoint\"><code>DELETE /streams/:id</code></td>",
-    "<td>Terminate a specific stream by its numeric ID. Returns 204 on success, 404 if not found.</td>",
+    "<td>Terminate a specific stream by its numeric ID. Returns 200 on success, 404 if not found.</td>",
     "</tr>",
     "</table>",
     "</div>",
@@ -1847,6 +1847,36 @@ function generateConfigSubtabScript(): string {
     "    .catch(function(err) { showStatus('Failed to toggle channel: ' + err.message, 'error'); });",
     "  };",
 
+    // Update provider selection for a multi-provider channel.
+    "  window.updateProviderSelection = function(selectElement) {",
+    "    var channelKey = selectElement.getAttribute('data-channel');",
+    "    var providerKey = selectElement.value;",
+    "    showStatus('Updating provider...', 'info');",
+    "    fetch('/config/provider', {",
+    "      method: 'POST',",
+    "      headers: { 'Content-Type': 'application/json' },",
+    "      body: JSON.stringify({ channel: channelKey, provider: providerKey })",
+    "    })",
+    "    .then(function(response) { return response.json(); })",
+    "    .then(function(result) {",
+    "      if (result.success) {",
+    "        showStatus('Provider updated. New streams will use the selected provider.', 'success');",
+    "        var row = document.getElementById('display-row-' + channelKey);",
+    "        if (row) {",
+    "          var profileCell = row.cells[3];",
+    "          if (result.profile) {",
+    "            profileCell.textContent = result.profile;",
+    "          } else {",
+    "            profileCell.innerHTML = '<em>auto</em>';",
+    "          }",
+    "        }",
+    "      } else {",
+    "        showStatus(result.error || 'Failed to update provider.', 'error');",
+    "      }",
+    "    })",
+    "    .catch(function(err) { showStatus('Failed to update provider: ' + err.message, 'error'); });",
+    "  };",
+
     // Toggle all predefined channels' enabled/disabled state.
     "  window.toggleAllPredefined = function(enable) {",
     "    showStatus((enable ? 'Enabling' : 'Disabling') + ' all predefined channels...', 'info');",
@@ -2194,16 +2224,18 @@ function generateLandingPageStyles(): string {
 
     // Channel table styles. The wrapper enables horizontal scrolling on small screens.
     ".channel-table-wrapper { overflow-x: auto; margin-bottom: 20px; }",
-    ".channel-table { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: 700px; }",
+    ".channel-table { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: 650px; }",
     ".channel-table th, .channel-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border-default); ",
     "overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }",
     ".channel-table th { background: var(--table-header-bg); font-weight: 600; font-size: 13px; }",
     ".channel-table tr:hover { background: var(--table-row-hover); }",
     ".channel-table .col-key { width: 170px; }",
-    ".channel-table .col-name { width: 220px; }",
+    ".channel-table .col-name { width: 250px; }",
+    ".channel-table .col-source { width: 150px; }",
     ".channel-table .col-profile { width: 140px; }",
     ".channel-table .col-actions { width: 170px; white-space: nowrap; overflow: visible; }",
-    ".channel-url { font-size: 12px; color: var(--text-secondary); }",
+    ".provider-select { width: 100%; padding: 2px 4px; font-size: 12px; border: 1px solid var(--form-input-border); ",
+    "border-radius: 3px; background: var(--form-input-bg); color: var(--text-primary); }",
 
     // Responsive: hide Profile on tablets, hide Key and Profile on phones.
     "@media (max-width: 1024px) { .channel-table .col-profile, .channel-table td:nth-child(4), .channel-table th:nth-child(4) { display: none; } }",
