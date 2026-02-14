@@ -166,6 +166,10 @@ export interface ChannelsConfig {
 
   // List of predefined channel keys that are disabled. Disabled channels are excluded from the playlist and cannot be streamed.
   disabledPredefined: string[];
+
+  // Provider tags that are enabled for filtering. Empty array means no filter (all providers shown). Non-empty means only channels with at least one matching
+  // provider variant are included in the playlist and guide.
+  enabledProviders: string[];
 }
 
 /**
@@ -508,6 +512,9 @@ export interface Channel {
  */
 export interface ChannelListingEntry {
 
+  // Whether the channel has at least one provider variant available given the current provider filter. When false, the channel is hidden from the playlist and guide.
+  availableByProvider: boolean;
+
   // The channel definition with all properties (name, url, profile, etc.).
   channel: Channel;
 
@@ -541,14 +548,14 @@ export interface ProviderGroup {
   canonicalKey: string;
 
   // List of all provider variants including the canonical entry. Each variant has a key (channel key) and a display label for the UI.
-  variants: Array<{
+  variants: {
 
     // Channel key for this provider variant. Example: "espn" or "espn-disneyplus".
     key: string;
 
     // UI display label derived from channel.provider (if set) or auto-resolved from the URL domain via getProviderDisplayName(). Example: "ESPN.com" or "Disney+".
     label: string;
-  }>;
+  }[];
 }
 
 /* These types track active streaming sessions throughout their lifecycle. When a stream request arrives, we create a StreamInfo object to track the session's
@@ -777,16 +784,19 @@ export interface StreamListResponse {
 /**
  * Available channel selection strategies. Each strategy implements a different approach to finding and selecting channels in a multi-channel player UI.
  *
+ * - "foxGrid": Find channel by station code in a non-virtualized guide grid, click the channel logo button via DOM .click(). Used by Fox.com.
  * - "guideGrid": Find channel by exact-matching image alt text, click nearest clickable ancestor. Optionally clicks a tab to reveal the list first. Used by Hulu
  *   Live TV.
  * - "hboGrid": Discover the HBO tab page URL from the homepage menu bar, scrape the live channel tile rail for a matching channel name, and navigate to the watch
  *   URL. Caches the tab URL across tunes with stale-cache fallback. Used by HBO Max.
  * - "none": No channel selection needed (single-channel sites). This is the default.
+ * - "slingGrid": Find channel by data-testid in a virtualized A-Z guide grid, scroll via binary search on .guide-cell scrollTop, click the on-now program
+ *   cell. Used by Sling TV.
  * - "thumbnailRow": Find channel by matching image URL slug, click adjacent element on the same row. Used by USA Network.
  * - "tileClick": Find channel tile by matching image URL slug, click tile, then click play button on modal. Used by Disney+ live channels.
  * - "youtubeGrid": Find channel by aria-label in a non-virtualized EPG grid, extract the watch URL, and navigate directly. Used by YouTube TV.
  */
-export type ChannelSelectionStrategy = "guideGrid" | "hboGrid" | "none" | "thumbnailRow" | "tileClick" | "youtubeGrid";
+export type ChannelSelectionStrategy = "foxGrid" | "guideGrid" | "hboGrid" | "none" | "slingGrid" | "thumbnailRow" | "tileClick" | "youtubeGrid";
 
 /**
  * Configuration for channel selection behavior within a site profile.
@@ -803,6 +813,20 @@ export interface ChannelSelectionConfig {
 
   // The strategy to use for finding and clicking channel elements.
   strategy: ChannelSelectionStrategy;
+}
+
+// Narrowed profile type for strategy functions. When selectChannel() validates that channelSelector is non-null, it narrows the profile to this type so
+// strategy functions receive a guaranteed non-null channelSelector without needing non-null assertions.
+export interface ChannelSelectionProfile extends ResolvedSiteProfile {
+
+  channelSelector: string;
+}
+
+// Type guard that proves channelSelector is a non-empty string. Matches the original !channelSelector truthiness check, which rejects both null and empty string.
+// Used by the coordinator before dispatching to strategy functions.
+export function isChannelSelectionProfile(profile: ResolvedSiteProfile): profile is ChannelSelectionProfile {
+
+  return (profile.channelSelector !== null) && (profile.channelSelector.length > 0);
 }
 
 /**

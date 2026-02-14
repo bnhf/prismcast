@@ -2,7 +2,7 @@
  *
  * monitor.ts: Playback health monitoring for PrismCast.
  */
-import { EvaluateTimeoutError, LOG, formatError, getAbortSignal, isSessionClosedError, runWithStreamContext } from "../utils/index.js";
+import { EvaluateTimeoutError, LOG, formatError, getAbortSignal, isSessionClosedError, runWithStreamContext, startTimer } from "../utils/index.js";
 import type { Frame, Page } from "puppeteer-core";
 import type { Nullable, ResolvedSiteProfile, VideoState } from "../types/index.js";
 import type { StreamHealthStatus, StreamStatus } from "./statusEmitter.js";
@@ -202,17 +202,23 @@ function formatRecoveryDuration(startTime: number): string {
  */
 function getIssueDescription(category: "paused" | "buffering" | "other"): string {
 
-  if(category === "paused") {
+  switch(category) {
 
-    return "paused";
+    case "paused": {
+
+      return "paused";
+    }
+
+    case "buffering": {
+
+      return "buffering";
+    }
+
+    default: {
+
+      return "stalled";
+    }
   }
-
-  if(category === "buffering") {
-
-    return "buffering";
-  }
-
-  return "stalled";
 }
 
 /**
@@ -222,22 +228,32 @@ function getIssueDescription(category: "paused" | "buffering" | "other"): string
  */
 function getRecoveryMethod(level: number): string {
 
-  if(level === 1) {
+  switch(level) {
 
-    return RECOVERY_METHODS.playUnmute;
+    case 1: {
+
+      return RECOVERY_METHODS.playUnmute;
+    }
+
+    case 2: {
+
+      return RECOVERY_METHODS.sourceReload;
+    }
+
+    default: {
+
+      return RECOVERY_METHODS.pageNavigation;
+    }
   }
-
-  if(level === 2) {
-
-    return RECOVERY_METHODS.sourceReload;
-  }
-
-  return RECOVERY_METHODS.pageNavigation;
 }
 
 /**
  * Records a recovery attempt in the metrics. Uses the ATTEMPT_FIELDS mapping to find the correct counter field, eliminating the need for if/else chains. This
  * makes adding new recovery methods trivial - just add an entry to ATTEMPT_FIELDS.
+ *
+ * Note: Tab replacement calls this once per logical attempt even though it may internally retry the onTabReplacement callback. The retry is an implementation
+ * detail of executeTabReplacement, not a separate recovery attempt from the monitor's perspective. The circuit breaker likewise records one failure per logical
+ * attempt, not per callback invocation.
  * @param metrics - The metrics object to update.
  * @param method - The recovery method being attempted.
  */
@@ -558,7 +574,7 @@ export function monitorPlaybackHealth(
   streamId: string,
   streamInfo: MonitorStreamInfo,
   onCircuitBreak: () => void,
-  onTabReplacement?: () => Promise<TabReplacementResult | null>
+  onTabReplacement?: () => Promise<Nullable<TabReplacementResult>>
 ): () => RecoveryMetrics {
 
   /*
@@ -860,8 +876,70 @@ export function monitorPlaybackHealth(
   }
 
   /**
+   * Applies successful tab replacement state. Updates page and context references, logs recovery duration, records metrics, and resets all failure/escalation state
+   * for the fresh tab. Consolidated here so the try and catch paths in executeTabReplacement share a single implementation.
+   * @param result - The successful tab replacement result containing the new page and context.
+   */
+  function applyTabReplacementSuccess(result: TabReplacementResult): void {
+
+    currentPage = result.page;
+    currentContext = result.context;
+
+    const duration = formatRecoveryDuration(metrics.currentRecoveryStartTime ?? Date.now());
+
+    LOG.info("Recovered in %s via %s.", duration, RECOVERY_METHODS.tabReplacement);
+
+    recordRecoverySuccess(metrics, RECOVERY_METHODS.tabReplacement);
+
+    // Full state reset for fresh tab.
+    lastPageNavigationTime = Date.now();
+    resetRecoveryCounters();
+    resetEscalationState();
+    resetSegmentMonitoringState();
+    setRecoveryGracePeriod(3);
+    resetCircuitBreaker(circuitBreaker);
+  }
+
+  /**
+   * Handles tab replacement failure after all retry attempts are exhausted. Clears stale recovery metrics (preventing ghost "Recovered" logs from the
+   * deferred-success check), runs the circuit breaker, and detects zombie streams where the old page was destroyed but no replacement was created.
+   * @param context - Description of the failure for circuit breaker logging.
+   * @returns The tab replacement outcome (failed or terminated).
+   */
+  function handleExhaustedTabReplacement(context: string): TabReplacementOutcome {
+
+    // Clear stale recovery metrics so the deferred-success check does not falsely log "Recovered" from leftover state set by recordRecoveryAttempt.
+    metrics.currentRecoveryStartTime = null;
+    metrics.currentRecoveryMethod = null;
+
+    LOG.warn("Tab replacement unsuccessful after retry.");
+
+    const failureOutcome = handleTabReplacementFailure(context);
+
+    // If the circuit breaker did not trip but the old page is gone (handler destroyed it before createPageWithCapture failed), the stream is unrecoverable. The
+    // next monitor tick would silently clear the interval via currentPage.isClosed() with no termination log, no status emission, and no cleanup — creating a
+    // zombie entry in the registry. Terminate explicitly instead.
+    if((failureOutcome.outcome === "failed") && currentPage.isClosed()) {
+
+      LOG.error("Tab replacement failed and old page is closed. Stream is unrecoverable. Terminating stream.");
+
+      clearInterval(interval);
+      onCircuitBreak();
+
+      return { outcome: "terminated" };
+    }
+
+    return failureOutcome;
+  }
+
+  /**
    * Executes tab replacement recovery with full error handling. This unified helper handles all tab replacement triggers (tiny segments, stalled capture, unresponsive
    * tab) consistently, including metrics recording, success/failure logging, circuit breaker checks, and state resets.
+   *
+   * On failure, retries onTabReplacement once before giving up. The handler destroys old resources (capture, segmenter, FFmpeg, page) before calling
+   * createPageWithCapture, so a retry is the only chance to save the stream when the first attempt fails. All handler cleanup steps are idempotent on retry:
+   * rawCaptureStream.destroyed guard, segmenter stop() checks state.stopped, FFmpeg kill() checks ffmpeg.killed, page close checks !oldPage.isClosed(), and
+   * unregisterManagedPage is idempotent.
    * @param issueType - Description of what triggered the replacement (for logging and UI display).
    * @returns The tab replacement outcome.
    */
@@ -879,46 +957,61 @@ export function monitorPlaybackHealth(
     lastIssueType = issueType;
     lastIssueTime = Date.now();
 
+    const tabRecoveryElapsed = startTimer();
+
     recordRecoveryAttempt(metrics, RECOVERY_METHODS.tabReplacement);
 
     try {
 
-      const result = await onTabReplacement();
+      let result = await onTabReplacement();
+
+      // First attempt failed — retry once. See idempotency notes in the JSDoc above.
+      if(!result) {
+
+        LOG.debug("recovery:tab", "Tab replacement attempt 1/2 failed. Retrying...");
+
+        try {
+
+          result = await onTabReplacement();
+        } catch(retryError) {
+
+          LOG.debug("recovery:tab", "Tab replacement attempt 2/2 failed: %s.", formatError(retryError));
+        }
+      }
 
       if(result) {
 
-        // Success: update references and reset state.
-        currentPage = result.page;
-        currentContext = result.context;
-
-        const duration = formatRecoveryDuration(metrics.currentRecoveryStartTime ?? Date.now());
-
-        LOG.info("Recovered in %s via %s.", duration, RECOVERY_METHODS.tabReplacement);
-
-        recordRecoverySuccess(metrics, RECOVERY_METHODS.tabReplacement);
-
-        // Full state reset for fresh tab.
-        lastPageNavigationTime = Date.now();
-        resetRecoveryCounters();
-        resetEscalationState();
-        resetSegmentMonitoringState();
-        setRecoveryGracePeriod(3);
-        resetCircuitBreaker(circuitBreaker);
+        applyTabReplacementSuccess(result);
 
         return { outcome: "success" };
       }
 
-      // Failure: null result from callback.
-      LOG.warn("Tab replacement unsuccessful.");
-
-      return handleTabReplacementFailure("tab replacement unsuccessful");
+      return handleExhaustedTabReplacement("tab replacement unsuccessful");
     } catch(error) {
 
-      // Error: exception during replacement.
-      LOG.warn("Tab replacement failed: %s.", formatError(error));
+      // Unexpected error (not from onTabReplacement — those are caught internally by the handler in hls.ts and return null). Guard against registry corruption,
+      // getStream failures, or other unexpected errors.
+      LOG.debug("recovery:tab", "Tab replacement attempt 1/2 failed: %s. Retrying...", formatError(error));
 
-      return handleTabReplacementFailure("tab replacement error");
+      try {
+
+        const retryResult = await onTabReplacement();
+
+        if(retryResult) {
+
+          applyTabReplacementSuccess(retryResult);
+
+          return { outcome: "success" };
+        }
+      } catch(retryError) {
+
+        LOG.debug("recovery:tab", "Tab replacement attempt 2/2 failed: %s.", formatError(retryError));
+      }
+
+      return handleExhaustedTabReplacement("tab replacement error");
     } finally {
+
+      LOG.debug("timing:recovery", "Tab replacement completed. Total: %sms.", tabRecoveryElapsed());
 
       finalizeTabReplacement();
     }
@@ -936,6 +1029,8 @@ export function monitorPlaybackHealth(
    */
   async function performPageNavigationRecovery(): Promise<PageNavigationRecoveryResult> {
 
+    const navRecoveryElapsed = startTimer();
+
     // Track page count before navigation to detect unexpected new tabs (popups, ads).
     const browser = currentPage.browser();
     const pageCountBefore = (await browser.pages()).length;
@@ -951,16 +1046,16 @@ export function monitorPlaybackHealth(
 
       if(pageCountAfter > pageCountBefore) {
 
-        LOG.warn("Detected %s new tab(s) created during navigation.", pageCountAfter - pageCountBefore);
+        LOG.debug("recovery:nav", "Detected %s new tab(s) created during navigation.", pageCountAfter - pageCountBefore);
       }
 
       // Validate that we're on the expected page.
       const currentUrl = currentPage.url();
       const expectedHostname = new URL(url).hostname;
 
-      if(currentUrl.indexOf(expectedHostname) === -1) {
+      if(!currentUrl.includes(expectedHostname)) {
 
-        LOG.warn("Page URL after navigation (%s) does not match expected hostname.", currentUrl);
+        LOG.debug("recovery:nav", "Page URL after navigation (%s) does not match expected hostname.", currentUrl);
       }
 
       // Validate that the video element is accessible and has reasonable state.
@@ -968,15 +1063,21 @@ export function monitorPlaybackHealth(
 
       if(validationState.found) {
 
+        LOG.debug("timing:recovery", "Page navigation recovery succeeded. Total: %sms.", navRecoveryElapsed());
+
         return { newContext, success: true };
       }
 
       LOG.warn("Page navigation completed but video element not found in new context.");
 
+      LOG.debug("timing:recovery", "Page navigation recovery failed (no video). Total: %sms.", navRecoveryElapsed());
+
       return { success: false };
     } catch(error) {
 
       LOG.warn("Failed to reinitialize video after page navigation: %s.", formatError(error));
+
+      LOG.debug("timing:recovery", "Page navigation recovery failed (error). Total: %sms.", navRecoveryElapsed());
 
       return { success: false };
     }
@@ -1055,7 +1156,7 @@ export function monitorPlaybackHealth(
 
           if(isContextDestroyed) {
 
-            LOG.warn("Video context was invalidated (frame detached). Will re-search for video.");
+            LOG.debug("recovery:context", "Video context was invalidated (frame detached). Will re-search for video.");
             contextInvalidated = true;
           } else {
 
@@ -1070,7 +1171,7 @@ export function monitorPlaybackHealth(
         // If context was invalidated (frame detached), immediately try to find the video in a new context.
         if(contextInvalidated) {
 
-          LOG.info("Re-searching for video after context invalidation.");
+          LOG.debug("recovery:context", "Re-searching for video after context invalidation.");
 
           try {
 
@@ -1155,7 +1256,7 @@ export function monitorPlaybackHealth(
           // After 2+ failures, try re-searching frames to see if video moved to a different context.
           if(videoNotFoundCount === 2) {
 
-            LOG.info("Re-searching frames for video element.");
+            LOG.debug("recovery:context", "Re-searching frames for video element.");
 
             try {
 
@@ -1370,15 +1471,13 @@ export function monitorPlaybackHealth(
 
               LOG.warn("Detected %d consecutive tiny segments (%d bytes). Capture pipeline appears dead.", consecutiveTinySegments, segmentSize);
 
-              // Trigger tab replacement if available, otherwise let circuit breaker handle it via segmentProductionStalled.
+              // Trigger tab replacement if available, otherwise let circuit breaker handle it via segmentProductionStalled. Return unconditionally after tab
+              // replacement (matching stalled-capture and unresponsive-tab triggers) to avoid falling through the rest of the tick with stale pre-replacement state.
               if(onTabReplacement && !recoveryInProgress) {
 
-                const tabResult = await executeTabReplacement("tiny segments");
+                await executeTabReplacement("tiny segments");
 
-                if(tabResult.outcome === "terminated") {
-
-                  return;
-                }
+                return;
               } else if(!onTabReplacement) {
 
                 // No tab replacement callback - set stalled flag for circuit breaker.
@@ -1391,7 +1490,7 @@ export function monitorPlaybackHealth(
             // Self-healing may be transient and not require decoder reset.
             if(wasInTinySegmentState) {
 
-              LOG.debug("Segment production self-healed (%d bytes).", segmentSize);
+              LOG.debug("recovery:segments", "Segment production self-healed (%d bytes).", segmentSize);
             }
 
             // Reset tiny segment tracking.
@@ -1408,7 +1507,7 @@ export function monitorPlaybackHealth(
        */
         if(pendingReMinimize && isProgressing && !state.paused && !state.error && !state.ended) {
 
-          LOG.debug("Re-minimizing browser window after successful recovery.");
+          LOG.debug("recovery", "Re-minimizing browser window after successful recovery.");
 
           pendingReMinimize = false;
 
@@ -1698,7 +1797,7 @@ export function monitorPlaybackHealth(
               // itself is broken (e.g., network issues, site blocking).
               if(consecutiveNavigationFailures >= 2) {
 
-                LOG.error("Page navigation has failed %s consecutive times. Falling back to source reload recovery.",
+                LOG.warn("Page navigation has failed %s consecutive times. Falling back to source reload recovery.",
                   consecutiveNavigationFailures);
 
                 escalationLevel = 2;
@@ -1719,7 +1818,7 @@ export function monitorPlaybackHealth(
 
                 if(pageReloadTimestamps.length >= CONFIG.playback.maxPageReloads) {
 
-                  LOG.error("Exceeded maximum page navigations (%s in %s minutes). Falling back to source reload.",
+                  LOG.warn("Exceeded maximum page navigations (%s in %s minutes). Falling back to source reload.",
                     CONFIG.playback.maxPageReloads, Math.round(CONFIG.playback.pageReloadWindow / 60000));
 
                   escalationLevel = 2;
@@ -1822,7 +1921,7 @@ export function monitorPlaybackHealth(
 
         if(errorMessage.includes("aborted")) {
 
-          LOG.debug("Monitor check aborted: %s.", errorMessage);
+          LOG.debug("recovery", "Monitor check aborted: %s.", errorMessage);
         } else {
 
           LOG.error("Monitor check failed: %s.", errorMessage);
@@ -1835,7 +1934,7 @@ export function monitorPlaybackHealth(
           emitStatusUpdate();
         }
       }
-    }).catch((outerError) => {
+    }).catch((outerError: unknown) => {
 
       // Log errors that escape the inner try/catch. In normal operation we should not reach here - if we do, there's a bug to investigate.
       LOG.warn("Monitor tick error escaped inner try/catch: %s.", formatError(outerError));

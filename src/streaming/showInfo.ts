@@ -274,7 +274,7 @@ async function updateShowNames(): Promise<void> {
   }
 
   // Collect all stream entries for lookup and unique client addresses for DVR host discovery.
-  const allStreamEntries: Array<{ channelKey: string; id: number }> = [];
+  const allStreamEntries: { channelKey: string; id: number }[] = [];
   const discoveryHosts = new Set<string>();
 
   for(const stream of streams) {
@@ -324,7 +324,7 @@ async function updateShowNames(): Promise<void> {
  * @param host - The DVR server hostname or IP address.
  * @param hostStreams - Array of streams from this host with their channel keys.
  */
-async function updateShowNamesForHost(host: string, hostStreams: Array<{ channelKey: string; id: number }>): Promise<void> {
+async function updateShowNamesForHost(host: string, hostStreams: { channelKey: string; id: number }[]): Promise<void> {
 
   // Ensure we have fresh device mappings.
   const mappings = await getDeviceMappings(host);
@@ -382,7 +382,7 @@ async function updateShowNamesForHost(host: string, hostStreams: Array<{ channel
 
         showNameCache.set(stream.id, showName);
 
-        LOG.debug("Show name for stream %d (%s): %s.", stream.id, stream.channelKey, showName);
+        LOG.debug("streaming:showinfo", "Show name for stream %d (%s): %s.", stream.id, stream.channelKey, showName);
       }
     } else {
 
@@ -391,7 +391,7 @@ async function updateShowNamesForHost(host: string, hostStreams: Array<{ channel
 
         showNameCache.delete(stream.id);
 
-        LOG.debug("Cleared show name for stream %d (%s): no matching program.", stream.id, stream.channelKey);
+        LOG.debug("streaming:showinfo", "Cleared show name for stream %d (%s): no matching program.", stream.id, stream.channelKey);
       }
     }
   }
@@ -443,7 +443,7 @@ async function getDeviceMappings(host: string): Promise<Map<string, Map<string, 
 
     if(deviceChannelIds.size !== prismcastChannelKeys.size) {
 
-      LOG.debug("Skipping M3U device %s: channel count mismatch (%d vs %d).", device.DeviceID, deviceChannelIds.size, prismcastChannelKeys.size);
+      LOG.debug("streaming:showinfo", "Skipping M3U device %s: channel count mismatch (%d vs %d).", device.DeviceID, deviceChannelIds.size, prismcastChannelKeys.size);
 
       continue;
     }
@@ -462,12 +462,12 @@ async function getDeviceMappings(host: string): Promise<Map<string, Map<string, 
 
     if(!allMatch) {
 
-      LOG.debug("Skipping M3U device %s: channel IDs do not match PrismCast channels.", device.DeviceID);
+      LOG.debug("streaming:showinfo", "Skipping M3U device %s: channel IDs do not match PrismCast channels.", device.DeviceID);
 
       continue;
     }
 
-    LOG.debug("Matched M3U device %s as PrismCast source (%d channels).", device.DeviceID, device.Channels.length);
+    LOG.debug("streaming:showinfo", "Matched M3U device %s as PrismCast source (%d channels).", device.DeviceID, device.Channels.length);
 
     // Build guide number → channel ID map for this device and cache logo URLs.
     const guideToChannelId = new Map<string, string>();
@@ -496,7 +496,7 @@ async function getDeviceMappings(host: string): Promise<Map<string, Map<string, 
   // Cache the mappings and device IDs.
   deviceMappingsByHost.set(host, { deviceIds, lastRefresh: now, mappings });
 
-  LOG.debug("Refreshed device mappings from %s: %d M3U device(s), %d channel(s).", host, mappings.size, totalChannels);
+  LOG.debug("streaming:showinfo", "Refreshed device mappings from %s: %d M3U device(s), %d channel(s).", host, mappings.size, totalChannels);
 
   return mappings;
 }
@@ -538,7 +538,7 @@ async function getGuideShowNames(host: string): Promise<Map<string, string>> {
     }
   }
 
-  LOG.debug("Fetched guide data from %s: %d channel(s) with current programs.", host, showNames.size);
+  LOG.debug("streaming:showinfo", "Fetched guide data from %s: %d channel(s) with current programs.", host, showNames.size);
 
   return showNames;
 }
@@ -556,7 +556,7 @@ async function fetchFromDvr<T>(host: string, path: string): Promise<T[]> {
   try {
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+    const timeoutId = setTimeout(() => { controller.abort(); }, API_TIMEOUT_MS);
 
     const response = await fetch(url, {
 
@@ -579,7 +579,7 @@ async function fetchFromDvr<T>(host: string, path: string): Promise<T[]> {
       // Don't log abort errors (timeouts) - they're expected for unreachable servers.
       if(error.name !== "AbortError") {
 
-        LOG.debug("Failed to fetch %s from %s: %s.", path, host, formatError(error));
+        LOG.debug("streaming:showinfo", "Failed to fetch %s from %s: %s.", path, host, formatError(error));
       }
     }
 

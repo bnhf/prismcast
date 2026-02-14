@@ -71,6 +71,9 @@ export function generateThemeStyles(): string {
     "  --status-error-bg: #f8d7da;",
     "  --status-error-border: #f5c6cb;",
     "  --status-error-text: #721c24;",
+    "  --status-info-bg: #e0f2fe;",
+    "  --status-info-border: #7dd3fc;",
+    "  --status-info-text: #0369a1;",
 
     // Stream health indicator colors.
     "  --stream-healthy: #27ae60;",
@@ -140,6 +143,7 @@ export function generateThemeStyles(): string {
     "  --dark-text-muted: #999999;",
     "  --dark-text-error: #f44747;",
     "  --dark-text-warn: #dcdcaa;",
+    "  --dark-text-debug: #4ec9b0;",
     "  --dark-border: #3d3d3d;",
     "  --dark-scrollbar-track: #2d2d2d;",
     "  --dark-scrollbar-thumb: #555555;",
@@ -201,6 +205,9 @@ export function generateThemeStyles(): string {
     "    --status-error-bg: #3d2020;",
     "    --status-error-border: #5a2a2a;",
     "    --status-error-text: #f5a5a5;",
+    "    --status-info-bg: #1e2d3d;",
+    "    --status-info-border: #2a4a5a;",
+    "    --status-info-text: #7dc4f5;",
 
     // Stream health indicator colors - same in dark mode for consistency.
     "    --stream-healthy: #2ecc71;",

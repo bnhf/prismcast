@@ -4,9 +4,10 @@
  */
 import { CONFIG, displayConfiguration, initializeConfiguration, validateConfiguration } from "./config/index.js";
 import type { Express, NextFunction, Request, Response } from "express";
-import { LOG, createMorganStream, formatError, getPackageVersion, resolveFFmpegPath, setConsoleLogging, startUpdateChecking, stopUpdateChecking } from "./utils/index.js";
-import { closeBrowser, ensureDataDirectory, getCurrentBrowser, killStaleChrome, prepareExtension, setGracefulShutdown, startStalePageCleanup,
-  stopStalePageCleanup } from "./browser/index.js";
+import { LOG, createMorganStream, formatError, getPackageVersion, isDebugLogging, resolveFFmpegPath, setConsoleLogging, startUpdateChecking,
+  stopUpdateChecking } from "./utils/index.js";
+import { closeBrowser, ensureDataDirectory, getCurrentBrowser, killStaleChrome, minimizeBrowserWindow, prepareExtension, setGracefulShutdown,
+  startBrowserRestartChecking, startStalePageCleanup, stopBrowserRestartChecking, stopStalePageCleanup } from "./browser/index.js";
 import { initializeFileLogger, shutdownFileLogger } from "./utils/fileLogger.js";
 import { startHdhrServer, stopHdhrServer } from "./hdhr/index.js";
 import { startShowInfoPolling, stopShowInfoPolling } from "./streaming/showInfo.js";
@@ -21,6 +22,7 @@ import morgan from "morgan";
 import { setupRoutes } from "./routes/index.js";
 import { terminateStream } from "./streaming/lifecycle.js";
 import { validateProfiles } from "./config/profiles.js";
+import { verifyCaptureSystem } from "./streaming/setup.js";
 
 /* The logging mode is set at startup based on the --console CLI flag. When console logging is enabled, timestamps are added via console-stamp and output goes to
  * stdout/stderr. When file logging is used (the default), output goes to ~/.prismcast/prismcast.log.
@@ -93,6 +95,7 @@ function setupGracefulShutdown(): void {
 
     // Stop cleanup and polling intervals.
     stopHdhrServer();
+    stopBrowserRestartChecking();
     stopStalePageCleanup();
     stopIdleCleanup();
     stopShowInfoPolling();
@@ -340,6 +343,20 @@ export async function startServer(useConsoleLogging = false): Promise<void> {
     await initializeFileLogger(CONFIG.logging.maxSize);
   }
 
+  // Log the debug filter status after the file logger is ready so the message is captured.
+  if(isDebugLogging()) {
+
+    const debugEnv = process.env.PRISMCAST_DEBUG;
+
+    if(debugEnv) {
+
+      LOG.info("Debug logging enabled with filter: %s.", debugEnv);
+    } else {
+
+      LOG.info("Debug logging enabled for all categories.");
+    }
+  }
+
   // Check FFmpeg availability if using FFmpeg capture mode. This must be after file logger initialization so the log message is captured.
   if(CONFIG.streaming.captureMode === "ffmpeg") {
 
@@ -372,8 +389,28 @@ export async function startServer(useConsoleLogging = false): Promise<void> {
     throw error;
   }
 
+  // Verify the capture system works before accepting requests. This detects stale tabCapture state from a previous Chrome process and exits immediately if
+  // found, since the puppeteer-stream mutex would be permanently leaked. The probe also ensures the STOP_RECORDING cleanup chain completes before returning.
+  try {
+
+    await verifyCaptureSystem();
+  } catch(error) {
+
+    LOG.error("Capture system verification failed during startup: %s.", formatError(error));
+
+    throw error;
+  }
+
+  // Minimize the browser window to reduce GPU usage and desktop clutter. The browser must be visible (not headless) for capture to work, but minimizing it reduces
+  // resource consumption. CDP allows us to control window state without affecting capture. We defer minimization until after display detection and capture
+  // verification complete, since both require the window in a normal state.
+  await minimizeBrowserWindow();
+
   // Start stale page cleanup.
   startStalePageCleanup();
+
+  // Start browser restart checking.
+  startBrowserRestartChecking();
 
   // Start idle cleanup.
   startIdleCleanup();

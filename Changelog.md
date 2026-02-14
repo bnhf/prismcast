@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.3.1 (2026-02-14)
+  * Improvement: when channel selection fails, logs available channel names from the provider's guide to help users identify the correct channel selector value for user-defined channels.
+  * Improvement: YouTube TV channel matching now handles parenthetical suffix variants and additional PBS affiliate names.
+  * Fix: channel selection failures now abort the stream instead of silently serving the wrong channel.
+  * Fix: web UI regression.
+  * Housekeeping.
+
+## 1.3.0 (2026-02-14)
+  * New feature: Fox.com provider support.
+  * New feature: Sling TV provider support with automatic local affiliate resolution for broadcast networks.
+  * New feature: provider filtering. Choose which subscription services are active in your environment and filter channels accordingly.
+  * Improvement: streaming startup and playback recovery performance optimizations.
+  * Improvement: stream resiliency and recovery improvements.
+  * Improvement: additions and refinements to predefined channels.
+  * Improvement: UI refinements.
+  * Housekeeping.
+
 ## 1.2.1 (2026-02-08)
   * New feature: HBO Max provider support.
   * New feature: YouTube TV provider support with automatic local affiliate resolution for broadcast networks and PBS.

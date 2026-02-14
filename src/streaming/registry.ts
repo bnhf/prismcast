@@ -207,8 +207,8 @@ export function updateLastAccess(id: number): void {
  */
 export function createHLSState(): HLSState {
 
-  let signalInitSegmentReady: () => void = () => {};
-  let signalPlaylistReady: () => void = () => {};
+  let signalInitSegmentReady: () => void = () => { /* No-op until promise assigns the real resolver. */ };
+  let signalPlaylistReady: () => void = () => { /* No-op until promise assigns the real resolver. */ };
 
   const initSegmentReady = new Promise<void>((resolve) => {
 
@@ -304,7 +304,7 @@ export function getTotalSegmentMemory(): number {
  * @param entry - The stream registry entry to query.
  * @returns Segment size in bytes, or null if no segmenter exists.
  */
-export function getLastSegmentSize(entry: StreamRegistryEntry): number | null {
+export function getLastSegmentSize(entry: StreamRegistryEntry): Nullable<number> {
 
   return entry.segmenter?.getLastSegmentSize() ?? null;
 }
