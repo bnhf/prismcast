@@ -282,21 +282,69 @@ export const CHANNELS: ChannelMap = {
   showtime: { name: "Showtime", stationId: "91620", url: "https://www.paramountplus.com/live-tv/stream/showtime-east" },
   "showtime-yttv": { channelSelector: "Showtime East", url: "https://tv.youtube.com/live" },
   showtimep: { name: "Showtime (Pacific)", stationId: "91621", url: "https://www.paramountplus.com/live-tv/stream/showtime-west" },
-  stzcinema: { channelSelector: "starz cinema", name: "Starz Cinema", stationId: "67236", url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z" },
-  stzinblack: { channelSelector: "starz in black", name: "Starz in Black", stationId: "67235", url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z" },
-  stzcomedy: { channelSelector: "starz comedy", name: "Starz Comedy", stationId: "57569", url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z" },
-  stzedge: { channelSelector: "starz edge", name: "Starz Edge", stationId: "57573", url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z" },
-  stzenblack: { channelSelector: "starz encore black", name: "Starz Encore Black", stationId: "14870", url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z" },
-  stzenclassic: { channelSelector: "starz encore classic", name: "Starz Encore Classic", stationId: "14764", url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z" },
-  stzenp: { channelSelector: "starz encore west", name: "Starz Encore West", stationId: "17125", url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z" },
-  stzenfamily: { channelSelector: "starz encore family", name: "Starz Encore Family", stationId: "102903", url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z" },
-  stzen: { channelSelector: "starz encore", name: "Starz Encore", stationId: "36225", url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z" },
-  stzensuspense: { channelSelector: "starz encore suspense", name: "Starz Encore Suspense", stationId: "14766", url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z" },
-  stzenwesterns: { channelSelector: "starz encore westerns", name: "Starz Encore Westerns", stationId: "102906", url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z" },
-  stz: { channelSelector: "starz", name: "Starz", stationId: "34941", url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z" },
-  stzp: { channelSelector: "starz west", name: "Starz West", stationId: "34949", url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z" },
-  stzkids: { channelSelector: "starz kids & family", name: "Starz Kids & Family", stationId: "57581", url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z" },
-  stzenaction: { channelSelector: "starz encore action", name: "Starz Encore Action", stationId: "72015", url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z" },
+  starz: { channelSelector: "starz", name: "Starz", stationId: "34941", url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z" },
+  starzcinema: { channelSelector: "starz cinema", name: "Starz Cinema", stationId: "67236", url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z" },
+  starzcomedy: { channelSelector: "starz comedy", name: "Starz Comedy", stationId: "57569", url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z" },
+  starzedge: { channelSelector: "starz edge", name: "Starz Edge", stationId: "57573", url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z" },
+  starzencore: { channelSelector: "starz encore", name: "Starz Encore", stationId: "36225", url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z" },
+  starzencoreaction: {
+
+    channelSelector: "starz encore action",
+    name: "Starz Encore Action",
+    stationId: "72015",
+    url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z"
+  },
+  starzencoreblack: {
+
+    channelSelector: "starz encore black",
+    name: "Starz Encore Black",
+    stationId: "14870",
+    url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z"
+  },
+  starzencoreclassic: {
+
+    channelSelector: "starz encore classic",
+    name: "Starz Encore Classic",
+    stationId: "14764",
+    url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z"
+  },
+  starzencorefamily: {
+
+    channelSelector: "starz encore family",
+    name: "Starz Encore Family",
+    stationId: "102903",
+    url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z"
+  },
+  starzencorep: {
+
+    channelSelector: "starz encore west",
+    name: "Starz Encore West",
+    stationId: "17125",
+    url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z"
+  },
+  starzencoresuspense: {
+
+    channelSelector: "starz encore suspense",
+    name: "Starz Encore Suspense",
+    stationId: "14766",
+    url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z"
+  },
+  starzencorewesterns: {
+
+    channelSelector: "starz encore westerns",
+    name: "Starz Encore Westerns",
+    stationId: "102906",
+    url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z"
+  },
+  starzinblack: { channelSelector: "starz in black", name: "Starz in Black", stationId: "67235", url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z" },
+  starzkids: {
+
+    channelSelector: "starz kids & family",
+    name: "Starz Kids & Family",
+    stationId: "57581",
+    url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z"
+  },
+  starzp: { channelSelector: "starz west", name: "Starz West", stationId: "34949", url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z" },
   syfy: { channelSelector: "Syfy_East", name: "Syfy", stationId: "58623", url: "https://www.usanetwork.com/live" },
   "syfy-hulu": { channelSelector: "SYFY", url: "https://www.hulu.com/live" },
   "syfy-sling": { channelSelector: "SYFY", url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z" },
