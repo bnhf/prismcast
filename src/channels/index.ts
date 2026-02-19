@@ -283,10 +283,15 @@ export const CHANNELS: ChannelMap = {
   "showtime-yttv": { channelSelector: "Showtime East", url: "https://tv.youtube.com/live" },
   showtimep: { name: "Showtime (Pacific)", stationId: "91621", url: "https://www.paramountplus.com/live-tv/stream/showtime-west" },
   starz: { channelSelector: "starz", name: "Starz", stationId: "34941", url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z" },
+  "starz-yttv": { channelSelector: "STARZ East", url: "https://tv.youtube.com/live" },
   starzcinema: { channelSelector: "starz cinema", name: "Starz Cinema", stationId: "67236", url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z" },
+  "starzcinema-yttv": { channelSelector: "STARZ Cinema West", stationId: "67365", url: "https://tv.youtube.com/live" },
   starzcomedy: { channelSelector: "starz comedy", name: "Starz Comedy", stationId: "57569", url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z" },
+  "starzcomedy-yttv": { channelSelector: "STARZ Comedy West", stationId: "57575", url: "https://tv.youtube.com/live" },
   starzedge: { channelSelector: "starz edge", name: "Starz Edge", stationId: "57573", url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z" },
+  "starzedge-yttv": { channelSelector: "STARZ Edge West", stationId: "57578", url: "https://tv.youtube.com/live" },
   starzencore: { channelSelector: "starz encore", name: "Starz Encore", stationId: "36225", url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z" },
+  "starzencore-yttv": { channelSelector: "STARZEncore East", url: "https://tv.youtube.com/live" },
   starzencoreaction: {
 
     channelSelector: "starz encore action",
@@ -294,6 +299,7 @@ export const CHANNELS: ChannelMap = {
     stationId: "72015",
     url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z"
   },
+  "starzencoreaction-yttv": { channelSelector: "STARZEncore Action", url: "https://tv.youtube.com/live" },
   starzencoreblack: {
 
     channelSelector: "starz encore black",
@@ -301,6 +307,7 @@ export const CHANNELS: ChannelMap = {
     stationId: "14870",
     url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z"
   },
+  "starzencoreblack-yttv": { channelSelector: "STARZEncore Black", url: "https://tv.youtube.com/live" },
   starzencoreclassic: {
 
     channelSelector: "starz encore classic",
@@ -308,6 +315,7 @@ export const CHANNELS: ChannelMap = {
     stationId: "14764",
     url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z"
   },
+  "starzencoreclassic-yttv": { channelSelector: "STARZEncore Classic", url: "https://tv.youtube.com/live" },
   starzencorefamily: {
 
     channelSelector: "starz encore family",
@@ -315,6 +323,7 @@ export const CHANNELS: ChannelMap = {
     stationId: "102903",
     url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z"
   },
+  "starzencorefamily-yttv": { channelSelector: "STARZEncore Family", url: "https://tv.youtube.com/live" },
   starzencorep: {
 
     channelSelector: "starz encore west",
@@ -322,6 +331,7 @@ export const CHANNELS: ChannelMap = {
     stationId: "17125",
     url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z"
   },
+  "starzencorep-yttv": { channelSelector: "STARZEncore West", url: "https://tv.youtube.com/live" },
   starzencoresuspense: {
 
     channelSelector: "starz encore suspense",
@@ -329,6 +339,7 @@ export const CHANNELS: ChannelMap = {
     stationId: "14766",
     url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z"
   },
+  "starzencoresuspense-yttv": { channelSelector: "STARZEncore Suspense", url: "https://tv.youtube.com/live" },
   starzencorewesterns: {
 
     channelSelector: "starz encore westerns",
@@ -336,7 +347,9 @@ export const CHANNELS: ChannelMap = {
     stationId: "102906",
     url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z"
   },
+  "starzencorewesterns-yttv": { channelSelector: "STARZEncore Westerns", url: "https://tv.youtube.com/live" },
   starzinblack: { channelSelector: "starz in black", name: "Starz in Black", stationId: "67235", url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z" },
+  "starzinblack-yttv": { channelSelector: "STARZ in Black West", stationId: "67367", url: "https://tv.youtube.com/live" },
   starzkids: {
 
     channelSelector: "starz kids & family",
@@ -344,7 +357,9 @@ export const CHANNELS: ChannelMap = {
     stationId: "57581",
     url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z"
   },
+  "starzkids-yttv": { channelSelector: "STARZ Kids & Family West", stationId: "57583", url: "https://tv.youtube.com/live" },
   starzp: { channelSelector: "starz west", name: "Starz West", stationId: "34949", url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z" },
+  "starzp-yttv": { channelSelector: "STARZ West", url: "https://tv.youtube.com/live" },
   syfy: { channelSelector: "Syfy_East", name: "Syfy", stationId: "58623", url: "https://www.usanetwork.com/live" },
   "syfy-hulu": { channelSelector: "SYFY", url: "https://www.hulu.com/live" },
   "syfy-sling": { channelSelector: "SYFY", url: "https://watch.sling.com/dashboard/grid_guide/grid_guide_a_z" },
