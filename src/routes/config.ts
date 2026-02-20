@@ -573,6 +573,7 @@ export function generateChannelRowHtml(key: string, profiles: ProfileInfo[]): Ch
   displayLines.push("<tr id=\"display-row-" + escapeHtml(key) + "\"" + rowClassAttr + " data-provider-tags=\"" + escapeHtml(providerTags) + "\">");
   displayLines.push("<td><code>" + escapeHtml(key) + "</code></td>");
   displayLines.push("<td>" + escapeHtml(channel.name ?? key) + "</td>");
+  displayLines.push("<td>" + escapeHtml(displayChannel.stationId ?? "") + "</td>");
 
   // Source column: dropdown for multi-provider channels, static provider name for single-provider. Both states always render a hidden "No available providers" label
   // alongside the provider content so that client-side filterChannelRows() can toggle between them without a page reload.
@@ -657,7 +658,7 @@ export function generateChannelRowHtml(key: string, profiles: ProfileInfo[]): Ch
     const editLines: string[] = [];
 
     editLines.push("<tr id=\"edit-row-" + escapeHtml(key) + "\" style=\"display: none;\">");
-    editLines.push("<td colspan=\"5\">");
+    editLines.push("<td colspan=\"6\">");
     editLines.push("<div class=\"channel-form\" style=\"margin: 0;\">");
     editLines.push("<h3>Edit Channel: " + escapeHtml(key) + "</h3>");
     editLines.push("<form id=\"edit-channel-form-" + escapeHtml(key) + "\" onsubmit=\"return submitChannelForm(event, 'edit')\">");
@@ -1640,8 +1641,7 @@ export function generateChannelsPanel(channelMessage?: string, channelError?: bo
   // Form buttons.
   lines.push("<div class=\"form-buttons\">");
   lines.push("<button type=\"submit\" class=\"btn btn-primary\">Add Channel</button>");
-  lines.push("<button type=\"button\" class=\"btn btn-secondary\" onclick=\"document.getElementById('add-channel-form').style.display='none'; ",
-    "document.getElementById('add-channel-btn').style.display='inline-block';\">Cancel</button>");
+  lines.push("<button type=\"button\" class=\"btn btn-secondary\" onclick=\"hideAddForm();\">Cancel</button>");
   lines.push("</div>");
 
   lines.push("</form>");
@@ -1661,6 +1661,7 @@ export function generateChannelsPanel(channelMessage?: string, channelError?: bo
   lines.push("<tr>");
   lines.push("<th class=\"col-key\">Key</th>");
   lines.push("<th class=\"col-name\">Name</th>");
+  lines.push("<th class=\"col-stationId\">Station ID</th>");
   lines.push("<th class=\"col-source\">Source</th>");
   lines.push("<th class=\"col-profile\">Profile</th>");
   lines.push("<th class=\"col-actions\">Actions</th>");
@@ -2080,6 +2081,41 @@ export function setupConfigEndpoint(app: Express): void {
 
       void closeBrowser().then(() => { process.exit(0); }).catch(() => { process.exit(1); });
     }, 500);
+  });
+
+  // GET /config/channels/predefined-defaults - Returns predefined channel defaults for a given key. Used by the add channel form to pre-populate fields when the
+  // user enters a key that matches a predefined channel.
+  app.get("/config/channels/predefined-defaults", (req: Request, res: Response): void => {
+
+    const key = typeof req.query.key === "string" ? req.query.key.trim().toLowerCase() : "";
+
+    if(!key || !isPredefinedChannel(key)) {
+
+      res.json({ found: false });
+
+      return;
+    }
+
+    // Honour the user's current provider selection (e.g. "abc" → "abc-hulu"), then resolve inherited properties.
+    const resolvedKey = resolveProviderKey(key);
+    const channel = getResolvedChannel(resolvedKey);
+
+    if(!channel) {
+
+      res.json({ found: false });
+
+      return;
+    }
+
+    res.json({
+
+      channelSelector: channel.channelSelector ?? "",
+      found: true,
+      name: channel.name ?? "",
+      profile: channel.profile ?? "",
+      stationId: channel.stationId ?? "",
+      url: channel.url
+    });
   });
 
   // GET /config/channels/export - Export user channels as JSON.

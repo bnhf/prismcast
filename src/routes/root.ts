@@ -2660,6 +2660,36 @@ function generateConfigSubtabScript(): string {
     "      addUrlInput.addEventListener('input', function() { updateSelectorSuggestions('add-url', 'add-selectorList'); });",
     "      updateSelectorSuggestions('add-url', 'add-selectorList');",
     "    }",
+
+    // Pre-populate add channel form fields when the key matches a predefined channel.
+    "    var addKeyInput = document.getElementById('add-key');",
+    "    if (addKeyInput) {",
+    "      addKeyInput.addEventListener('blur', function() {",
+    "        var key = addKeyInput.value.trim().toLowerCase();",
+    "        if (!key) return;",
+    "        fetch('/config/channels/predefined-defaults?key=' + encodeURIComponent(key))",
+    "          .then(function(r) { return r.json(); })",
+    "          .then(function(data) {",
+    "            if (!data.found) return;",
+    "            var fields = [",
+    "              { id: 'add-name', value: data.name },",
+    "              { id: 'add-url', value: data.url },",
+    "              { id: 'add-stationId', value: data.stationId },",
+    "              { id: 'add-channelSelector', value: data.channelSelector }",
+    "            ];",
+    "            for (var i = 0; i < fields.length; i++) {",
+    "              var el = document.getElementById(fields[i].id);",
+    "              if (el && !el.value) { el.value = fields[i].value; }",
+    "            }",
+    "            if (data.profile) {",
+    "              var profileEl = document.getElementById('add-profile');",
+    "              if (profileEl && !profileEl.value) { profileEl.value = data.profile; }",
+    "            }",
+    "            updateSelectorSuggestions('add-url', 'add-selectorList');",
+    "          })",
+    "          .catch(function() {});",
+    "      });",
+    "    }",
     "  })();",
 
     // Login modal state tracking.
@@ -2875,14 +2905,16 @@ function generateLandingPageStyles(): string {
     ".channel-table tr:hover { background: var(--table-row-hover); }",
     ".channel-table .col-key { width: 170px; }",
     ".channel-table .col-name { width: 250px; }",
+    ".channel-table .col-stationId { width: 110px; }",
     ".channel-table .col-source { width: 150px; }",
     ".channel-table .col-profile { width: 140px; }",
     ".channel-table .col-actions { width: 170px; white-space: nowrap; overflow: visible; }",
     ".provider-select { width: 100%; padding: 2px 4px; font-size: 12px; border: 1px solid var(--form-input-border); ",
     "border-radius: 3px; background: var(--form-input-bg); color: var(--text-primary); }",
 
-    // Responsive: hide Profile on tablets, hide Key and Profile on phones.
-    "@media (max-width: 1024px) { .channel-table .col-profile, .channel-table td:nth-child(4), .channel-table th:nth-child(4) { display: none; } }",
+    // Responsive: hide Station ID and Profile on tablets, hide Key on phones (Profile already hidden at 1024px).
+    "@media (max-width: 1024px) { .channel-table .col-stationId, .channel-table td:nth-child(3), .channel-table th:nth-child(3), ",
+    ".channel-table .col-profile, .channel-table td:nth-child(5), .channel-table th:nth-child(5) { display: none; } }",
     "@media (max-width: 768px) { .channel-table .col-key, .channel-table td:nth-child(1), .channel-table th:nth-child(1) { display: none; } }",
 
     // User channel row tinting to distinguish custom/override channels from predefined.

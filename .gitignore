@@ -10,6 +10,12 @@ dist
 # Ignore Claude-related files.
 CLAUDE.md
 claude
+docs/
+
+# Ignore local-only files (never commit).
+Dockerfile.bnhf
+Dockerfile.bnhf.dockerignore
+package.publish.json
 
 # Ignore generated files.
 homebridge-ui/public/lib
