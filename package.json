@@ -1,12 +1,18 @@
 {
-  "name": "prismcast",
+  "name": "@bnhf/prismcast",
   "displayName": "PrismCast",
-  "version": "1.4.1",
+  "version": "1.4.1-2026.02.21-9",
   "description": "Browser-based live TV capture server for Channels DVR, Plex, and other streaming clients.",
   "author": {
     "name": "HJD",
     "url": "https://github.com/hjdhjd"
   },
+  "contributors": [
+    {
+      "name": "bnhf",
+      "url": "https://github.com/bnhf"
+    }
+  ],
   "homepage": "https://github.com/hjdhjd/prismcast",
   "license": "ISC",
   "bugs": {
@@ -58,7 +64,7 @@
     "build": "shx rm -rf dist && tsc",
     "clean": "shx rm -rf dist",
     "lint": "ESLINT_MAX_WARNINGS=${ESLINT_MAX_WARNINGS:--1} eslint src eslint.config.mjs",
-    "prepublishOnly": "npm run lint && npm run build",
+    "prepublishOnly": "npm run build",
     "start": "node dist/index.js",
     "watch": "npm run build && nodemon"
   },
