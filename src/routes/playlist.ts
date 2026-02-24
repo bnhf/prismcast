@@ -111,11 +111,13 @@ export function resolveBaseUrl(req: Request): string {
  * a filter tag are included. In exclude mode, channels whose selected provider matches any filter tag are excluded. When omitted, all channels are included.
  * @returns The M3U playlist content.
  */
-export function generatePlaylistContent(baseUrl: string, filter?: ProviderFilter): string {
+export function generatePlaylistContent(baseUrl: string, filter?: ProviderFilter, sortByName = false): string {
 
   const channels = getAllChannels();
   const lines = [ "#EXTM3U", "" ];
-  const channelNames = Object.keys(channels).sort();
+  const channelNames = Object.keys(channels).sort(
+    sortByName ? (a, b) => (channels[a].name ?? a).localeCompare(channels[b].name ?? b) : undefined
+  );
 
   for(const name of channelNames) {
 
@@ -171,11 +173,13 @@ export function generatePlaylistContent(baseUrl: string, filter?: ProviderFilter
  */
 export function setupPlaylistEndpoint(app: Express): void {
 
-  // GET /playlist - Returns the M3U playlist file. Supports optional ?provider= query parameter for filtering channels by streaming provider.
+  // GET /playlist - Returns the M3U playlist file. Supports optional ?provider= query parameter for filtering channels by streaming provider,
+  // and optional ?sort=name to sort the playlist alphabetically by channel display name rather than key.
   app.get("/playlist", (req: Request, res: Response): void => {
 
     const baseUrl = resolveBaseUrl(req);
     const providerParam = typeof req.query.provider === "string" ? req.query.provider.trim() : undefined;
+    const sortParam = typeof req.query.sort === "string" ? req.query.sort.trim().toLowerCase() : undefined;
     let filter: ProviderFilter | undefined;
 
     // Parse and validate the provider filter if specified.
@@ -193,7 +197,15 @@ export function setupPlaylistEndpoint(app: Express): void {
       filter = result.filter;
     }
 
-    const playlist = generatePlaylistContent(baseUrl, filter);
+    // Validate the sort parameter if specified.
+    if(sortParam && sortParam !== "name") {
+
+      res.status(400).json({ error: "Invalid sort value \"" + sortParam + "\". Valid values: name" });
+
+      return;
+    }
+
+    const playlist = generatePlaylistContent(baseUrl, filter, sortParam === "name");
 
     res.set("Content-Type", "audio/x-mpegurl");
     res.send(playlist);
