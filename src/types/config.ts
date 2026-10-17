@@ -94,6 +94,11 @@ export interface PlaybackConfig {
   // elevated briefly in case the fix was temporary. Only after sustained healthy playback do we reset to level 0. This prevents "stutter loops" where playback
   // works briefly then fails again.
   sustainedPlaybackRequired: number;
+
+  // Whether a sustained run of undersized segments that still carry video triggers tab replacement. Low-motion content (slates, still images, a static studio
+  // shot) can encode below the size floor on a healthy capture, so operators whose channels trip the floor that way can turn this off. Undersized segments with
+  // no video always trigger recovery regardless, because they mean video capture has died.
+  undersizedSegmentRecovery: boolean;
 }
 
 /**

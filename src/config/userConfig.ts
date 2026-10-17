@@ -451,6 +451,17 @@ export const CONFIG_METADATA: Record<string, SettingMetadata[]> = {
       reactivity: "live",
       type: "integer",
       unit: "ms"
+    },
+    {
+
+      description: "Replace the browser tab when captured segments stay smaller than expected for a sustained period, which can mean capture has stalled. " +
+        "Low-motion content such as slates, still images, or a static studio shot can produce small segments while capture is healthy - turn this off if " +
+        "those channels cause needless tab replacements. Segments with no video, which mean video capture has failed, are always recovered.",
+      envVar: "UNDERSIZED_SEGMENT_RECOVERY",
+      label: "Undersized Segment Recovery",
+      path: "playback.undersizedSegmentRecovery",
+      reactivity: "live",
+      type: "boolean"
     }
   ],
 
@@ -775,6 +786,7 @@ export interface UserPlaybackConfig {
   stallCountThreshold?: number;
   stallThreshold?: number;
   sustainedPlaybackRequired?: number;
+  undersizedSegmentRecovery?: boolean;
 }
 
 /**
@@ -1490,7 +1502,8 @@ export const DEFAULTS: Config = {
     sourceReloadDelay: 2000,
     stallCountThreshold: 2,
     stallThreshold: 0.1,
-    sustainedPlaybackRequired: 60000
+    sustainedPlaybackRequired: 60000,
+    undersizedSegmentRecovery: true
   },
 
   recovery: {

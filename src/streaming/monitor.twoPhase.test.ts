@@ -866,6 +866,124 @@ describe("monitorPlaybackHealth: the undersized-segment floor follows the stream
   });
 });
 
+describe("monitorPlaybackHealth: the undersized-segment recovery setting", () => {
+
+  // A segment size under the floor at the default settings, as a low-motion picture on a healthy capture produces.
+  const LOW_MOTION_SEGMENT_BYTES = 160000;
+
+  /**
+   * Starts a monitor over a capture whose every segment is undersized, with or without video, and counts the replacements it asks for.
+   * @param options - Whether the segments carry video, the id the monitor and registry agree on, and the row's test context, which restores its mocks at row end.
+   * @returns The row's clock, the Page double, the captured warnings, and a reader for the replacement count.
+   */
+  function startUndersizedMonitor(options: { hasVideo: boolean; streamId: number; t: TestContext }):
+  { clock: TestClock; fake: ReturnType<typeof makeFakePage>; messages: string[]; replacements: () => number } {
+
+    const clock = new TestClock();
+
+    let index = 0;
+
+    const segmenter = options.hasVideo ? {
+
+      getLastSegmentHasVideo: (): boolean => true,
+      getLastSegmentSize: (): number => LOW_MOTION_SEGMENT_BYTES,
+      getSegmentIndex: (): number => ++index,
+      pipe: (): void => { /* Nothing consumes this double. */ },
+      stop: (): void => { /* Nothing to stop. */ }
+    } as unknown as FMP4SegmenterResult : makeStarvingSegmenter();
+
+    const session = { attachSegmenter: (): void => undefined, dispose: (): void => undefined, disposed: false, segmenter,
+      [Symbol.dispose]: (): void => undefined } as unknown as CaptureSession;
+
+    entry = { ...makeEntry(options.streamId), identity: { ...makePendingCaptureIdentity(), captureSession: session } };
+    registerStream(entry);
+
+    const messages = captureLogs(options.t);
+    const fake = makeFakePage({ clock });
+
+    let replacements = 0;
+
+    handle = monitorPlaybackHealth(fake.page, fake.page, makeProfile(), "https://two-phase.test/watch", "undersized-setting-" + String(options.streamId),
+      streamInfo(options.streamId, clock), (): void => { /* The breaker is not what these rows read. */ }, async (): Promise<Nullable<TabReplacementResult>> => {
+
+        replacements++;
+
+        return null;
+      }, makeDivergentDeps(clock));
+
+    return { clock, fake, messages, replacements: (): number => replacements };
+  }
+
+  test("with the setting off, undersized segments that carry video never replace the tab, and turning it on lets them", async (t) => {
+
+    /* The low-motion case the setting exists for: every segment carries video and sits under the floor, as a slate or a static shot produces on a healthy
+     * capture. The row drives three times the default evidence window with the setting off and demands no escalation at all. The control turns the setting on
+     * mid-stream and demands the same segments escalate - which proves the trigger was satisfied the whole time and the setting is what held it, and that a save
+     * reaches a stream already running.
+     */
+    assert.ok(LOW_MOTION_SEGMENT_BYTES < deriveTinySegmentThresholdBytes({ audioBitsPerSecond: makeStreamSettings().audioBitsPerSecond,
+      segmentDurationSeconds: makeStreamSettings().segmentDuration, videoBitsPerSecond: makeStreamSettings().videoBitsPerSecond }),
+    "precondition: the segment sits under the floor at the default settings");
+
+    const configured = CONFIG.playback.undersizedSegmentRecovery;
+
+    CONFIG.playback.undersizedSegmentRecovery = false;
+
+    try {
+
+      const run = startUndersizedMonitor({ hasVideo: true, streamId: 9340, t });
+
+      await driveHealthyTicks(run.clock, run.fake, 30);
+
+      assert.equal(countMessages(run.messages, "Detected"), 0, "no escalation across three evidence windows with the setting off");
+      assert.equal(run.replacements(), 0, "and no replacement was requested");
+
+      CONFIG.playback.undersizedSegmentRecovery = true;
+
+      for(let tick = 0; (tick < 60) && (countMessages(run.messages, "Detected") === 0); tick++) {
+
+        // Sequential by definition: the trigger's own state advances one tick at a time.
+        // eslint-disable-next-line no-await-in-loop
+        await driveHealthyTicks(run.clock, run.fake, 1);
+      }
+
+      assert.equal(countMessages(run.messages, "Detected"), 1, "turning the setting on lets the same segments escalate");
+      assert.ok(run.replacements() > 0, "and reach the replacement handler");
+    } finally {
+
+      CONFIG.playback.undersizedSegmentRecovery = configured;
+    }
+  });
+
+  test("with the setting off, undersized segments without video still replace the tab", async (t) => {
+
+    /* The failure the setting must never hide: video capture has died while audio continues, so every segment is undersized and video-free. Turning the setting
+     * off is a statement about low-motion video, not about a capture that has lost its video, so this escalates exactly as it does with the setting on.
+     */
+    const configured = CONFIG.playback.undersizedSegmentRecovery;
+
+    CONFIG.playback.undersizedSegmentRecovery = false;
+
+    try {
+
+      const run = startUndersizedMonitor({ hasVideo: false, streamId: 9341, t });
+
+      for(let tick = 0; (tick < 60) && (countMessages(run.messages, "Detected") === 0); tick++) {
+
+        // Sequential by definition: the trigger's own state advances one tick at a time.
+        // eslint-disable-next-line no-await-in-loop
+        await driveHealthyTicks(run.clock, run.fake, 1);
+      }
+
+      assert.equal(countMessages(run.messages, "Detected"), 1, "the video-free run escalated with the setting off");
+      assert.ok(run.replacements() > 0, "and reached the replacement handler");
+    } finally {
+
+      CONFIG.playback.undersizedSegmentRecovery = configured;
+    }
+  });
+});
+
 describe("monitorPlaybackHealth: the tick follows the stream's interval", () => {
 
   test("a monitor whose settings carry a 500 ms interval ticks exactly four times across 2000 ms while the running configuration holds another", async (t) => {

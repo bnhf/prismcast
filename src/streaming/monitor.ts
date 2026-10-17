@@ -323,7 +323,8 @@ export function monitorPlaybackHealth(
    * The rate derives from the stream's video and audio bitrates, and the recovery module's floor constants state what that floor guarantees. A tab replacement
    * is earned by TINY_SEGMENT_EVIDENCE_SECONDS of consecutive undersized segments, counted in whole segments of the stream's duration. The duration and the
    * bitrates are the stream's own settings, which hold for its whole life, so a run of undersized segments is judged against the floor and the trigger the
-   * stream started with.
+   * stream started with. Undersized segments that still carry video count only while the undersized-segment recovery setting is on; those without video always
+   * count.
    */
   const { audioBitsPerSecond, segmentDuration: segmentDurationSeconds, videoBitsPerSecond } = streamInfo.settings;
   const tinySegmentByteThreshold = deriveTinySegmentThresholdBytes({ audioBitsPerSecond, segmentDurationSeconds, videoBitsPerSecond });
@@ -1673,15 +1674,25 @@ export function monitorPlaybackHealth(
 
       const segmentSize = getLastSegmentSize(sizeCheckEntry) ?? 0;
 
-      if(segmentSize < tinySegmentByteThreshold) {
+      // Check track composition. Dead capture pipelines produce audio-only segments (hasVideo=false), while segments with video trafs present come from a capture
+      // that is still delivering video.
+      const hasVideo = getLastSegmentHasVideo(sizeCheckEntry);
+
+      /* An undersized segment that still carries video counts toward recovery only while undersized-segment recovery is enabled. Low-motion content - a slate, a
+       * still image, a static studio shot - can encode below the floor on a healthy capture, so an operator whose channels trip the floor that way can turn the
+       * check off. An undersized segment without video counts regardless, because it means video capture has died and only a tab replacement brings it back. The
+       * setting is read on every segment, so a save reaches the streams already running.
+       */
+      const countsAsUndersized = (segmentSize < tinySegmentByteThreshold) && ((hasVideo !== true) || CONFIG.playback.undersizedSegmentRecovery);
+
+      if(countsAsUndersized) {
 
         segmentState.consecutiveTinySegments++;
         segmentState.wasInTinyState = true;
 
-        // Check track composition to determine the effective threshold. Dead capture pipelines produce audio-only segments (hasVideo=false) and always use the
-        // default count for fast detection. Segments with video trafs present use the service-specific threshold, which may be higher for services with extended
-        // static content (e.g., Xfinity commercial placeholders lasting several minutes).
-        const hasVideo = getLastSegmentHasVideo(sizeCheckEntry);
+        // The track composition determines the effective threshold. Audio-only segments always use the default count for fast detection. Segments with video trafs
+        // present use the service-specific threshold, which may be higher for services with extended static content (e.g., Xfinity commercial placeholders
+        // lasting several minutes).
         const effectiveThreshold = (hasVideo === false) ? tinySegmentCountTrigger : providerTinySegmentCountTrigger;
 
         LOG.debug("recovery:tracks", "Below-threshold segment: %d bytes, hasVideo=%s, consecutive=%d, threshold=%d.",
@@ -1712,10 +1723,8 @@ export function monitorPlaybackHealth(
         }
       } else {
 
-        // Valid segment size. Check for spontaneous recovery from tiny segment state.
+        // Valid segment size, or an undersized segment with video while undersized-segment recovery is off. Check for spontaneous recovery from tiny segment state.
         if(segmentState.wasInTinyState) {
-
-          const hasVideo = getLastSegmentHasVideo(sizeCheckEntry);
 
           LOG.debug("recovery:segments", "Segment production self-healed (%d bytes, hasVideo=%s).", segmentSize, String(hasVideo));
         }

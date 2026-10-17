@@ -629,7 +629,7 @@ describe("reactivity classification", () => {
     // Read per monitor tick, per recovery decision, or per tune step.
     [ "live", [ "playback.bufferingGracePeriod", "playback.channelSelectorDelay", "playback.channelSwitchDelay", "playback.iframeInitDelay",
       "playback.maxPageReloads", "playback.pageReloadWindow", "playback.sourceReloadDelay", "playback.stallCountThreshold", "playback.stallThreshold",
-      "playback.sustainedPlaybackRequired" ] ],
+      "playback.sustainedPlaybackRequired", "playback.undersizedSegmentRecovery" ] ],
 
     // Copied into each stream's settings when the stream registers.
     [ "next-stream", ["playback.monitorInterval"] ],
